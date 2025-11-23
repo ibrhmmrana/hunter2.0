@@ -28,6 +28,7 @@ export const MyAdsGallery = forwardRef<{ refresh: () => void }, {}>((props, ref)
   const [isLoading, setIsLoading] = useState(true);
   const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
   const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const adsRef = useRef<Ad[]>([]);
 
   const fetchAds = async () => {
     try {
@@ -39,7 +40,9 @@ export const MyAdsGallery = forwardRef<{ refresh: () => void }, {}>((props, ref)
         .limit(50);
 
       if (error) throw error;
-      setAds(data || []);
+      const fetchedAds = data || [];
+      setAds(fetchedAds);
+      adsRef.current = fetchedAds; // Keep ref in sync
     } catch (error) {
       console.error("[MyAdsGallery] Error fetching ads:", error);
     } finally {
@@ -55,17 +58,27 @@ export const MyAdsGallery = forwardRef<{ refresh: () => void }, {}>((props, ref)
     fetchAds();
   }, []);
 
+  // Update ref whenever ads change
   useEffect(() => {
-    // Clear any existing polling interval
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-      pollingIntervalRef.current = null;
-    }
+    adsRef.current = ads;
+  }, [ads]);
 
-    // Check if we need to start polling
+  // Polling effect - only manages starting/stopping based on current ads
+  useEffect(() => {
     const hasGenerating = ads.some(ad => ad.status === "generating" || ad.status === "pending");
     
+    // If no generating ads, ensure polling is stopped
     if (!hasGenerating) {
+      if (pollingIntervalRef.current) {
+        console.log("[MyAdsGallery] No generating ads, stopping polling");
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+      return;
+    }
+
+    // If we already have an interval running, don't create another one
+    if (pollingIntervalRef.current) {
       return;
     }
 
@@ -81,18 +94,28 @@ export const MyAdsGallery = forwardRef<{ refresh: () => void }, {}>((props, ref)
           .limit(50);
 
         if (error) throw error;
-        setAds(data || []);
+        
+        const fetchedAds = data || [];
+        const hasGeneratingAfterUpdate = fetchedAds.some(ad => ad.status === "generating" || ad.status === "pending");
+        
+        // Update ads state (this will trigger the effect, but the guard will prevent creating a new interval)
+        setAds(fetchedAds);
+        adsRef.current = fetchedAds;
+        
+        // If no more generating ads, stop polling
+        if (!hasGeneratingAfterUpdate && pollingIntervalRef.current) {
+          console.log("[MyAdsGallery] All ads completed, stopping polling");
+          clearInterval(pollingIntervalRef.current);
+          pollingIntervalRef.current = null;
+        }
       } catch (error) {
         console.error("[MyAdsGallery] Polling error:", error);
       }
     }, 3000);
 
     return () => {
-      if (pollingIntervalRef.current) {
-        console.log("[MyAdsGallery] Stopping polling");
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
+      // Only cleanup on unmount or when effect dependencies change significantly
+      // Don't clear here since we want polling to continue
     };
   }, [ads]);
 

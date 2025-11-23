@@ -142,8 +142,8 @@ export function AdsPageContent({ initialBusinessData }: AdsPageContentProps) {
         try {
           const formData = new FormData();
           formData.append("image", inputImage!);
-          formData.append("businessName", businessDetails.name);
-          formData.append("tagline", tagline);
+          formData.append("businessName", businessDetails.name || "");
+          formData.append("tagline", tagline || "");
           formData.append("address", businessDetails.address || "");
           formData.append("phone", businessDetails.phone || "");
           formData.append("preset", presetKey);
@@ -188,34 +188,16 @@ export function AdsPageContent({ initialBusinessData }: AdsPageContentProps) {
             return;
           }
 
-          const imageBase64 = result.imageBase64;
-          if (!imageBase64) {
-            // Update ad status to failed
-            await fetch("/api/ads/update-status", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                id: adId,
-                status: "failed",
-                error: "No image returned from generator",
-              }),
-            });
-            return;
+          // Server now handles status updates automatically
+          // Just refresh the gallery to pick up the status change
+          console.log("[AdsPage] Generation completed, refreshing gallery");
+          if (galleryRef.current) {
+            galleryRef.current.refresh();
           }
-
-          // Update ad with generated image
-          await fetch("/api/ads/update-status", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              id: adId,
-              status: "ready",
-              output_url: `data:image/png;base64,${imageBase64}`,
-            }),
-          });
         } catch (err: any) {
           console.error("[AdsPage] Background generation error", err);
-          // Update ad status to failed
+          // Server should have already updated the status, but if the request failed
+          // before reaching the server, try to update status as fallback
           try {
             await fetch("/api/ads/update-status", {
               method: "POST",
@@ -239,9 +221,9 @@ export function AdsPageContent({ initialBusinessData }: AdsPageContentProps) {
           formData.append("type", format!);
           formData.append("category", category);
           formData.append("preset_key", presetKey);
-          formData.append("title", tagline || `${businessDetails.name} - ${getPresetByKey(presetKey)?.label}`);
-          formData.append("businessName", businessDetails.name);
-          formData.append("tagline", tagline);
+          formData.append("title", tagline || `${businessDetails.name || ""} - ${getPresetByKey(presetKey)?.label || ""}`);
+          formData.append("businessName", businessDetails.name || "");
+          formData.append("tagline", tagline || "");
           formData.append("phone", businessDetails.phone || "");
           formData.append("website", businessDetails.website || "");
           formData.append("address", businessDetails.address || "");
