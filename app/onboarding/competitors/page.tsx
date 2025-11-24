@@ -1,9 +1,20 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import {
+  Box,
+  Card,
+  CardContent,
+  CardHeader,
+  Typography,
+  Button,
+  Stack,
+  Chip,
+  List,
+  ListItem,
+  ListItemText,
+} from "@mui/material";
+import OnboardingShell from "@/src/components/OnboardingShell";
 
 const competitors = [
   {
@@ -39,51 +50,57 @@ export default function CompetitorsPage() {
   const router = useRouter();
 
   return (
-    <div>
-      <CardHeader>
-        <CardTitle className="text-2xl">Your Competitors</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {competitors.map((competitor, index) => (
-          <Card key={index} className="rounded-2xl shadow-soft">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">{competitor.name}</h3>
-                <Badge
-                  variant={competitor.score >= 80 ? "default" : "secondary"}
-                  className="text-sm"
-                >
-                  Score: {competitor.score}/100
-                </Badge>
-              </div>
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-muted-foreground mb-2">
-                  Why they're ahead:
-                </p>
-                <ul className="list-disc list-inside space-y-1 text-sm text-foreground">
-                  {competitor.reasons.map((reason, reasonIndex) => (
-                    <li key={reasonIndex}>{reason}</li>
-                  ))}
-                </ul>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+    <OnboardingShell maxWidth="md">
+      <Card>
+        <CardHeader>
+          <Typography variant="h5" fontWeight={600}>
+            Your Competitors
+          </Typography>
+        </CardHeader>
+        <CardContent>
+          <Stack spacing={3}>
+            {competitors.map((competitor, index) => (
+              <Card key={index} variant="outlined" sx={{ borderRadius: 3 }}>
+                <CardContent>
+                  <Stack spacing={2}>
+                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <Typography variant="h6" fontWeight={600}>
+                        {competitor.name}
+                      </Typography>
+                      <Chip
+                        label={`Score: ${competitor.score}/100`}
+                        color={competitor.score >= 80 ? "primary" : "default"}
+                        size="small"
+                      />
+                    </Box>
+                    <Box>
+                      <Typography variant="body2" fontWeight={500} color="text.secondary" sx={{ mb: 1 }}>
+                        Why they&apos;re ahead:
+                      </Typography>
+                      <List dense sx={{ py: 0 }}>
+                        {competitor.reasons.map((reason, reasonIndex) => (
+                          <ListItem key={reasonIndex} sx={{ py: 0.5, px: 0 }}>
+                            <ListItemText
+                              primary={reason}
+                              primaryTypographyProps={{ variant: "body2" }}
+                            />
+                          </ListItem>
+                        ))}
+                      </List>
+                    </Box>
+                  </Stack>
+                </CardContent>
+              </Card>
+            ))}
 
-        <div className="flex justify-end pt-4">
-          <Button onClick={() => router.push("/onboarding/paywall")}>
-            Next
-          </Button>
-        </div>
-      </CardContent>
-    </div>
+            <Box sx={{ display: "flex", justifyContent: "flex-end", pt: 2 }}>
+              <Button variant="contained" onClick={() => router.push("/onboarding/paywall")}>
+                Next
+              </Button>
+            </Box>
+          </Stack>
+        </CardContent>
+      </Card>
+    </OnboardingShell>
   );
 }
-
-
-
-
-
-
-
-

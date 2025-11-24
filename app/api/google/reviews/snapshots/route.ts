@@ -98,6 +98,8 @@ export async function GET(request: NextRequest) {
       days_since_last_review: snapshot.days_since_last_review,
       total_reviews: snapshot.total_reviews,
       reviews_distribution: snapshot.reviews_distribution,
+      negative_summary: snapshot.negative_summary,
+      positive_summary: snapshot.positive_summary,
       snapshot_ts: snapshot.snapshot_ts,
     } : null;
     

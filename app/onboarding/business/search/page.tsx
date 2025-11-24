@@ -2,11 +2,20 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import {
+  Box,
+  Typography,
+  Card,
+  CardContent,
+  Button,
+  Alert,
+  AlertTitle,
+} from "@mui/material";
 import { BusinessSearchBox } from "@/components/BusinessSearchBox";
 import { ConfirmBusinessView } from "@/components/ConfirmBusinessView";
 import { NotOnMapsCard } from "@/components/NotOnMapsCard";
-import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { LoadingSpinner } from "@/src/components/LoadingSpinner";
+import OnboardingShell from "@/src/components/OnboardingShell";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import type { ConfirmBusinessData } from "@/app/api/places/confirm/route";
 
@@ -90,74 +99,68 @@ export default function BusinessSearchPage() {
     setSelectedPlaceId(null);
     setConfirmData(null);
     setError(null);
-    // Focus will be handled by BusinessSearchBox
   }, []);
 
   if (checkingAuth) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
+      <OnboardingShell>
+        <LoadingSpinner message="Checking authentication..." />
+      </OnboardingShell>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        {/* Search Section */}
-        <div className="mb-8">
-          <h1 className="text-3xl md:text-4xl font-semibold text-slate-950 mb-2">
+    <OnboardingShell maxWidth="lg">
+      <Box sx={{ width: "100%" }}>
+        {/* Search Section - Always visible */}
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="h3" sx={{ mb: 1, fontWeight: 600 }}>
             Find your business
-          </h1>
-          <p className="text-sm md:text-[15px] text-slate-600 mb-6">
-                    Start typing your business name. We&apos;ll search Google.
-                  </p>
-          
-          <div className="max-w-2xl">
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            Start typing your business name. We&apos;ll search Google.
+          </Typography>
+        
+          <Box sx={{ maxWidth: 800 }}>
             <BusinessSearchBox onSelect={handlePlaceSelect} />
-          </div>
-                </div>
+          </Box>
+        </Box>
 
-                {/* Loading State */}
-                {isLoadingDetails && (
-          <div className="mt-8 flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-slate-600" />
-            <span className="ml-3 text-sm text-slate-600">
-                      Loading business details...
-                    </span>
-                  </div>
-                )}
+        {/* Loading State */}
+        {isLoadingDetails && (
+          <Box sx={{ mt: 4, display: "flex", justifyContent: "center" }}>
+            <LoadingSpinner message="Loading business details..." />
+          </Box>
+        )}
 
-                {/* Error State - Not Found */}
-                {error === "NOT_FOUND" && (
-          <div className="mt-8">
-                  <NotOnMapsCard onBack={handleReject} />
-          </div>
-                )}
+        {/* Error State - Not Found */}
+        {error === "NOT_FOUND" && (
+          <Box sx={{ mt: 4 }}>
+            <NotOnMapsCard onBack={handleReject} />
+          </Box>
+        )}
 
-                {/* Error State - Other */}
-                {error && error !== "NOT_FOUND" && (
-          <div className="mt-8 rounded-xl border border-red-200 bg-red-50 p-6 max-w-2xl">
-                    <p className="text-sm text-red-700">{error}</p>
-                    <Button
-                      onClick={handleReject}
-                      variant="outline"
-                      className="mt-4"
-                      size="sm"
-                    >
-                      Try again
-                    </Button>
-                  </div>
-                )}
+        {/* Error State - Other */}
+        {error && error !== "NOT_FOUND" && (
+          <Box sx={{ mt: 4 }}>
+            <Alert severity="error" sx={{ mb: 2 }}>
+              <AlertTitle>Error</AlertTitle>
+              {error}
+            </Alert>
+            <Button onClick={handleReject} variant="outlined" size="small">
+              Try again
+            </Button>
+          </Box>
+        )}
 
-        {/* Confirmation Section - Inline Below Search */}
-      {confirmData && selectedPlaceId && !isLoadingDetails && !error && (
-          <div className="mt-8">
-              <ConfirmBusinessView 
-                data={confirmData} 
-                placeId={selectedPlaceId}
-                isPreparing={isPreparingAnalysis}
-                onConfirm={async () => {
+        {/* Preview Section - Shows below search when business is selected */}
+        {confirmData && selectedPlaceId && !isLoadingDetails && !error && (
+          <Box sx={{ mt: 3, display: "flex", justifyContent: "center" }}>
+            <ConfirmBusinessView 
+              data={confirmData} 
+              placeId={selectedPlaceId}
+              isPreparing={isPreparingAnalysis}
+              onConfirm={async () => {
                   if (!selectedPlaceId || !confirmData) return;
                   
                   setIsPreparingAnalysis(true);
@@ -204,7 +207,6 @@ export default function BusinessSearchPage() {
 
                   if (!kickoffResponse.ok || !kickoffData.ok) {
                     console.error('[Confirm] Kickoff failed:', kickoffData);
-                    // Show error but don't redirect - let user retry
                     setError(kickoffData?.error || 'We couldn\'t start your analysis. Please try again.');
                     setIsPreparingAnalysis(false);
                     return;
@@ -215,17 +217,15 @@ export default function BusinessSearchPage() {
                   router.push(`/onboard/connections?place_id=${encodeURIComponent(finalPlaceId)}`);
                 } catch (error: any) {
                   console.error('[Confirm] Error preparing analysis:', error);
-                  // Show error but don't redirect
                   setError(error?.message || 'We couldn\'t start your analysis. Please try again.');
                   setIsPreparingAnalysis(false);
                   }
                 }}
                 onReject={handleReject}
               />
-            </div>
+          </Box>
         )}
-          </div>
-        </div>
+      </Box>
+    </OnboardingShell>
   );
 }
-

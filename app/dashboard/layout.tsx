@@ -1,4 +1,4 @@
-import { Sidebar } from "@/components/Sidebar";
+import MaterialShell from "@/src/components/MaterialShell";
 import { DashboardContentLoader } from "@/components/DashboardContentLoader";
 
 export default function DashboardLayout({
@@ -7,14 +7,11 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-background">
-      <Sidebar />
-      <main className="ml-64 p-6">
-        <DashboardContentLoader>
-          {children}
-        </DashboardContentLoader>
-      </main>
-    </div>
+    <MaterialShell>
+      <DashboardContentLoader>
+        {children}
+      </DashboardContentLoader>
+    </MaterialShell>
   );
 }
 

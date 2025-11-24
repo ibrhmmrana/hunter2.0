@@ -1,10 +1,23 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Check } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import {
+  Box,
+  Card,
+  CardContent,
+  CardHeader,
+  Typography,
+  Button,
+  Grid,
+  Stack,
+  Chip,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+} from "@mui/material";
+import CheckRounded from "@mui/icons-material/CheckRounded";
+import OnboardingShell from "@/src/components/OnboardingShell";
 
 const plans = [
   {
@@ -59,71 +72,89 @@ export default function PaywallPage() {
   };
 
   return (
-    <div>
-      <CardHeader className="text-center">
-        <CardTitle className="text-3xl mb-2">
-          Premium business growth at the cost of lunch with a friend
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {plans.map((plan) => (
-            <Card
-              key={plan.id}
-              className={`rounded-2xl shadow-soft ${
-                plan.popular ? "border-primary border-2" : ""
-              }`}
-            >
-              <CardHeader>
-                {plan.popular && (
-                  <Badge className="w-fit mb-2">Most Popular</Badge>
-                )}
-                <CardTitle className="text-xl">{plan.name}</CardTitle>
-                <div className="text-3xl font-bold">
-                  ${plan.price}
-                  <span className="text-base font-normal text-muted-foreground">
-                    /month
-                  </span>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <ul className="space-y-2">
-                  {plan.features.map((feature, index) => (
-                    <li key={index} className="flex items-start gap-2 text-sm">
-                      <Check className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                      <span>{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-                <Button
-                  className="w-full rounded-2xl"
-                  variant={plan.popular ? "default" : "outline"}
-                  onClick={() => handleSelectPlan(plan.id)}
-                >
-                  Choose {plan.name}
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+    <OnboardingShell maxWidth="lg">
+      <Card>
+        <CardHeader sx={{ textAlign: "center" }}>
+          <Typography variant="h4" sx={{ mb: 1, fontWeight: 600 }}>
+            Premium business growth at the cost of lunch with a friend
+          </Typography>
+        </CardHeader>
+        <CardContent>
+          <Stack spacing={4}>
+            <Grid container spacing={3}>
+              {plans.map((plan) => (
+                <Grid item xs={12} md={4} key={plan.id}>
+                  <Card
+                    variant="outlined"
+                    sx={{
+                      height: "100%",
+                      borderRadius: 3,
+                      border: plan.popular ? 2 : 1,
+                      borderColor: plan.popular ? "primary.main" : "outline.variant",
+                      display: "flex",
+                      flexDirection: "column",
+                    }}
+                  >
+                    <CardHeader>
+                      <Stack spacing={2}>
+                        {plan.popular && (
+                          <Chip label="Most Popular" color="primary" size="small" sx={{ width: "fit-content" }} />
+                        )}
+                        <Typography variant="h6" fontWeight={600}>
+                          {plan.name}
+                        </Typography>
+                        <Box>
+                          <Typography component="span" variant="h4" fontWeight={700}>
+                            ${plan.price}
+                          </Typography>
+                          <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 0.5 }}>
+                            /month
+                          </Typography>
+                        </Box>
+                      </Stack>
+                    </CardHeader>
+                    <CardContent sx={{ flex: 1, display: "flex", flexDirection: "column" }}>
+                      <Stack spacing={2} sx={{ flex: 1 }}>
+                        <List dense sx={{ py: 0 }}>
+                          {plan.features.map((feature, index) => (
+                            <ListItem key={index} sx={{ py: 0.5, px: 0 }}>
+                              <ListItemIcon sx={{ minWidth: 32 }}>
+                                <CheckRounded fontSize="small" color="primary" />
+                              </ListItemIcon>
+                              <ListItemText
+                                primary={feature}
+                                primaryTypographyProps={{ variant: "body2" }}
+                              />
+                            </ListItem>
+                          ))}
+                        </List>
+                        <Button
+                          fullWidth
+                          variant={plan.popular ? "contained" : "outlined"}
+                          onClick={() => handleSelectPlan(plan.id)}
+                          sx={{ borderRadius: 3, mt: "auto" }}
+                        >
+                          Choose {plan.name}
+                        </Button>
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
 
-        <div className="text-center pt-4">
-          <button
-            onClick={handleContinueFree}
-            className="text-sm text-muted-foreground hover:text-foreground underline"
-          >
-            Continue on free plan for now
-          </button>
-        </div>
-      </CardContent>
-    </div>
+            <Box sx={{ textAlign: "center", pt: 2 }}>
+              <Button
+                onClick={handleContinueFree}
+                variant="text"
+                sx={{ textDecoration: "underline" }}
+              >
+                Continue on free plan for now
+              </Button>
+            </Box>
+          </Stack>
+        </CardContent>
+      </Card>
+    </OnboardingShell>
   );
 }
-
-
-
-
-
-
-
-

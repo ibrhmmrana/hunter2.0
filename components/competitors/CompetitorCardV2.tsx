@@ -35,7 +35,8 @@ export function CompetitorCardV2({ competitor, index = 0 }: CompetitorCardV2Prop
       className="soft-card overflow-hidden flex flex-col h-full"
     >
       {/* Photo */}
-      <div className="relative h-40 md:h-48 bg-gradient-to-br from-slate-200 to-slate-300">
+      {/* Image border radius - change rounded-2xl to adjust: rounded-none (0px), rounded-sm (2px), rounded (4px), rounded-md (6px), rounded-lg (8px), rounded-xl (12px), rounded-2xl (16px), rounded-3xl (24px) */}
+      <div className="relative h-40 md:h-48 bg-gradient-to-br from-slate-200 to-slate-300 rounded-2xl overflow-hidden">
         {competitor.photo_url ? (
           <img
             src={competitor.photo_url}

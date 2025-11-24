@@ -1,11 +1,23 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Input } from "@/components/ui/input";
-import { Loader2, MapPin } from "lucide-react";
+import {
+  TextField,
+  Box,
+  List,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  CircularProgress,
+  Paper,
+  Typography,
+  InputAdornment,
+  Portal,
+} from "@mui/material";
+import LocationOnRounded from "@mui/icons-material/LocationOnRounded";
+import SearchRounded from "@mui/icons-material/SearchRounded";
 import { loadMapsScript } from "@/lib/google/mapsScript";
 import { createSessionToken, resetSessionToken } from "@/lib/google/sessionToken";
-import { cn } from "@/lib/utils";
 import { useToast, ToastContainer } from "./Toast";
 
 interface AutocompletePrediction {
@@ -29,8 +41,10 @@ export function BusinessSearchBox({ onSelect }: BusinessSearchBoxProps) {
   const [isLoadingMaps, setIsLoadingMaps] = useState(true);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [error, setError] = useState<string | null>(null);
+  const [showDropdown, setShowDropdown] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
+  const inputElementRef = useRef<HTMLInputElement | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const autocompleteServiceRef = useRef<any>(null);
   const sessionTokenRef = useRef<{
@@ -69,6 +83,7 @@ export function BusinessSearchBox({ onSelect }: BusinessSearchBoxProps) {
       if (!autocompleteServiceRef.current || !query.trim()) {
         setPredictions([]);
         setSelectedIndex(-1);
+        setShowDropdown(false);
         return;
       }
 
@@ -106,13 +121,16 @@ export function BusinessSearchBox({ onSelect }: BusinessSearchBoxProps) {
               }))
             );
             setSelectedIndex(-1);
+            setShowDropdown(true);
           } else if (status === 'ZERO_RESULTS') {
             setPredictions([]);
+            setShowDropdown(false);
           } else {
             const errorMsg = "Failed to fetch suggestions. Please try again.";
             setError(errorMsg);
             addToast(errorMsg, "error");
             setPredictions([]);
+            setShowDropdown(false);
           }
         }
       );
@@ -143,6 +161,7 @@ export function BusinessSearchBox({ onSelect }: BusinessSearchBoxProps) {
       setError(null);
       setPredictions([]);
       setInputValue("");
+      setShowDropdown(false);
       resetSessionToken();
       sessionTokenRef.current = null;
 
@@ -158,7 +177,6 @@ export function BusinessSearchBox({ onSelect }: BusinessSearchBoxProps) {
       if (predictions.length === 0) {
         if (e.key === "Enter" && inputValue.trim()) {
           e.preventDefault();
-          // Could trigger search, but we require selection
         }
         return;
       }
@@ -184,11 +202,84 @@ export function BusinessSearchBox({ onSelect }: BusinessSearchBoxProps) {
           e.preventDefault();
           setPredictions([]);
           setSelectedIndex(-1);
+          setShowDropdown(false);
           break;
       }
     },
     [predictions, selectedIndex, inputValue, handleSelectPlace]
   );
+
+  // Store reference to actual input element for precise positioning
+  useEffect(() => {
+    const findInputElement = () => {
+      if (inputRef.current) {
+        // inputRef.current is the TextField's root element
+        const container = inputRef.current as HTMLElement;
+        // Find the actual input element within the TextField
+        const inputElement = container.querySelector('input[type="text"]') as HTMLInputElement | null;
+        if (inputElement) {
+          inputElementRef.current = inputElement;
+        }
+      }
+    };
+    
+    findInputElement();
+    // Also try after a small delay to ensure DOM is ready
+    const timeoutId = setTimeout(findInputElement, 10);
+    
+    return () => clearTimeout(timeoutId);
+  }, [showDropdown, inputValue]);
+
+  // Update dropdown position when input position changes (for Portal)
+  useEffect(() => {
+    if (!showDropdown || !dropdownRef.current) return;
+
+    const updatePosition = () => {
+      if (!dropdownRef.current) return;
+      
+      // Always try to find the actual input element first
+      let inputElement: HTMLInputElement | null = null;
+      
+      if (inputElementRef.current) {
+        inputElement = inputElementRef.current;
+      } else if (inputRef.current) {
+        // Try to find input element within the TextField container
+        const container = inputRef.current as HTMLElement;
+        inputElement = container.querySelector('input[type="text"]') as HTMLInputElement | null;
+        if (inputElement) {
+          inputElementRef.current = inputElement;
+        }
+      }
+      
+      if (inputElement) {
+        const rect = inputElement.getBoundingClientRect();
+        dropdownRef.current.style.left = `${rect.left}px`;
+        dropdownRef.current.style.top = `${rect.bottom + 4}px`;
+        dropdownRef.current.style.width = `${rect.width}px`;
+      } else if (inputRef.current) {
+        // Last resort: use container (but this should rarely happen)
+        const container = inputRef.current as HTMLElement;
+        const rect = container.getBoundingClientRect();
+        dropdownRef.current.style.left = `${rect.left}px`;
+        dropdownRef.current.style.top = `${rect.bottom + 4}px`;
+        dropdownRef.current.style.width = `${rect.width}px`;
+      }
+    };
+
+    // Use requestAnimationFrame for smoother updates
+    const rafId = requestAnimationFrame(() => {
+      updatePosition();
+      // Also set up interval updates for scroll/resize
+      window.addEventListener('scroll', updatePosition, true);
+      window.addEventListener('resize', updatePosition);
+    });
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      window.removeEventListener('scroll', updatePosition, true);
+      window.removeEventListener('resize', updatePosition);
+    };
+  }, [showDropdown, predictions]);
 
   // Click outside to close dropdown
   useEffect(() => {
@@ -199,7 +290,7 @@ export function BusinessSearchBox({ onSelect }: BusinessSearchBoxProps) {
         inputRef.current &&
         !inputRef.current.contains(event.target as Node)
       ) {
-        setPredictions([]);
+        setShowDropdown(false);
         setSelectedIndex(-1);
       }
     };
@@ -210,80 +301,123 @@ export function BusinessSearchBox({ onSelect }: BusinessSearchBoxProps) {
 
   if (isLoadingMaps) {
     return (
-      <div className="flex items-center justify-center py-8">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        <span className="ml-2 text-sm text-muted-foreground">
+      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", py: 4 }}>
+        <CircularProgress size={24} sx={{ mr: 2 }} />
+        <Typography variant="body2" color="text.secondary">
           Loading search...
-        </span>
-      </div>
+        </Typography>
+      </Box>
     );
   }
 
   return (
-    <div className="relative w-full">
-      <div className="relative">
-        <Input
-          ref={inputRef}
-          type="text"
+    <Box sx={{ position: "relative", width: "100%" }}>
+      <TextField
+        inputRef={inputRef}
+        fullWidth
           placeholder="Type your business name..."
           value={inputValue}
           onChange={(e) => handleInputChange(e.target.value)}
           onKeyDown={handleKeyDown}
-          className="w-full pr-10"
+        onFocus={() => {
+          if (predictions.length > 0) {
+            setShowDropdown(true);
+          }
+        }}
+        variant="outlined"
+        sx={{
+          backgroundColor: "surface.variant",
+          borderRadius: 999,
+          "& fieldset": { borderColor: "transparent" },
+          "&:hover fieldset": { borderColor: "transparent" },
+          "& .MuiOutlinedInput-root": {
+            borderRadius: 999,
+            "&:focus-within fieldset": {
+              borderColor: "primary.main",
+            },
+          },
+        }}
+        InputProps={{
+          startAdornment: (
+            <InputAdornment position="start">
+              <SearchRounded sx={{ color: "text.secondary" }} />
+            </InputAdornment>
+          ),
+          endAdornment: isLoading && (
+            <InputAdornment position="end">
+              <CircularProgress size={16} />
+            </InputAdornment>
+          ),
+        }}
           autoComplete="off"
           aria-label="Business search"
-          aria-expanded={predictions.length > 0}
+        aria-expanded={showDropdown}
           aria-haspopup="listbox"
         />
-        {isLoading && (
-          <div className="absolute right-3 top-1/2 -translate-y-1/2">
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-          </div>
-        )}
-      </div>
 
       {error && (
-        <div className="mt-2 text-sm text-destructive">{error}</div>
+        <Typography variant="caption" color="error" sx={{ mt: 1, display: "block" }}>
+          {error}
+        </Typography>
       )}
 
-      {predictions.length > 0 && (
-        <div
-          ref={dropdownRef}
-          className="absolute z-50 mt-2 w-full rounded-2xl border bg-card shadow-lg max-h-80 overflow-auto"
-          role="listbox"
-        >
-          {predictions.map((prediction, index) => (
-            <button
-              key={prediction.place_id}
-              type="button"
-              onClick={() => handleSelectPlace(prediction.place_id)}
-              className={cn(
-                "w-full px-4 py-3 text-left hover:bg-accent transition-colors",
-                "flex items-start gap-3",
-                index === selectedIndex && "bg-accent"
-              )}
-              role="option"
-              aria-selected={index === selectedIndex}
-            >
-              <MapPin className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
-              <div className="flex-1 min-w-0">
-                <div className="font-medium text-sm">
-                  {prediction.structured_formatting?.main_text ||
-                    prediction.description}
-                </div>
-                {prediction.structured_formatting?.secondary_text && (
-                  <div className="text-xs text-muted-foreground mt-0.5 truncate">
-                    {prediction.structured_formatting.secondary_text}
-                  </div>
-                )}
-              </div>
-            </button>
-          ))}
-        </div>
+      {showDropdown && predictions.length > 0 && (
+        <Portal container={typeof document !== 'undefined' ? document.body : null}>
+          <Paper
+            ref={dropdownRef}
+            elevation={8}
+            sx={{
+              position: "fixed",
+              zIndex: 1400, // Higher than MUI Dialog (1300)
+              maxHeight: 320,
+              overflow: "auto",
+              borderRadius: 3,
+              // Position and width will be set dynamically via useEffect
+            }}
+            role="listbox"
+          >
+            <List sx={{ py: 0.5 }}>
+            {predictions.map((prediction, index) => (
+                <ListItemButton
+                key={prediction.place_id}
+                onClick={() => handleSelectPlace(prediction.place_id)}
+                  selected={index === selectedIndex}
+                  sx={{
+                    borderRadius: 1,
+                    mx: 0.5,
+                    "&.Mui-selected": {
+                      backgroundColor: "action.selected",
+                    },
+                  }}
+                role="option"
+                aria-selected={index === selectedIndex}
+              >
+                  <ListItemIcon sx={{ minWidth: 36 }}>
+                    <LocationOnRounded fontSize="small" color="action" />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={
+                      <Typography variant="body2" fontWeight={500}>
+                    {prediction.structured_formatting?.main_text ||
+                      prediction.description}
+                      </Typography>
+                    }
+                    secondary={
+                      prediction.structured_formatting?.secondary_text && (
+                        <Typography variant="caption" color="text.secondary" noWrap>
+                      {prediction.structured_formatting.secondary_text}
+                        </Typography>
+                      )
+                    }
+                  />
+                </ListItemButton>
+            ))}
+            </List>
+          </Paper>
+        </Portal>
       )}
 
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
-    </div>
+    </Box>
   );
 }
-

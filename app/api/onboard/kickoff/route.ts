@@ -9,6 +9,7 @@ import { getTopSearchResultForBusiness } from "@/lib/competitors/topSearchLeader
 import { buildGoogleSummary } from "@/lib/insights/googleSummary";
 import { getGooglePunchline } from "@/lib/insights/punchlines";
 import { storePunchline } from "@/lib/insights/storePunchline";
+import { analyzeGoogleReviews } from "@/lib/social/analyzeGoogleReviews";
 
 export const dynamic = "force-dynamic";
 
@@ -199,6 +200,15 @@ export async function POST(request: NextRequest) {
         // (a) Ensure GBP snapshot
         await ensureGbpSnapshotUpToDate(placeId);
         console.log(`[Kickoff] GBP snapshot done for ${placeId}`);
+
+        // (a.1) Analyze Google reviews (creates google_review_snapshots with summaries)
+        try {
+          await analyzeGoogleReviews(placeId, placeId);
+          console.log(`[Kickoff] Google reviews analysis done for ${placeId}`);
+        } catch (err) {
+          console.error("[kickoff] Google reviews analysis failed", err);
+          // Continue - review analysis is not critical for onboarding
+        }
 
         // (b) Sync competitors
         await syncCompetitorsForBusiness(placeId);

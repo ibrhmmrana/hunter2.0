@@ -1,19 +1,10 @@
 "use client";
 
+import { useRef } from "react";
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { VisualTrustGauge } from "@/components/kpi/VisualTrustGauge";
-import { Star, AlertCircle, HelpCircle } from "lucide-react";
-import { formatReviewCount } from "@/lib/format";
+import { Container, Card, CardContent, Typography, Button, Box, Stack, Skeleton } from "@mui/material";
 import { useToast, ToastContainer } from "@/components/Toast";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { DashboardBusinessCard } from "@/components/DashboardBusinessCard";
+import BusinessHeroCard from "@/src/components/dashboard/BusinessHeroCard";
 import { ReviewMetrics } from "@/lib/analytics/reviewMetrics";
 import { useRouter } from "next/navigation";
 import { SocialMediaSection } from "@/components/SocialMediaSection";
@@ -66,88 +57,128 @@ interface DashboardContentProps {
 export function DashboardContent({ businessData, row1Data, reviewMetrics = null, socialSnapshots = [], socialProfiles = [], googleReviewSnapshot = null, latestAlerts = [], isLoading = false }: DashboardContentProps) {
   const { toasts, dismissToast } = useToast();
   const router = useRouter();
+  const businessCardRef = useRef<{ openChangeDialog: () => void }>(null);
 
   // Determine image URL (prefer business image_url, fallback to row1)
   const businessImageUrl = businessData?.image_url || row1Data?.image_url || null;
 
-  // Handle business change - use hard navigation to avoid showing old data
-  const handleBusinessChange = (placeId: string) => {
-    // The component will handle the navigation itself
-    // This is just a placeholder callback
+  // Handle business change - navigate to business search
+  const handleBusinessChange = () => {
+    router.push("/onboarding/business/search");
   };
 
   return (
-    <div className="space-y-8">
-      {/* Page Header */}
-      <div>
-        <h1 className="text-3xl font-bold mb-2">Dashboard</h1>
-      </div>
+    <Container maxWidth="xl" sx={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <Stack spacing={2} sx={{ height: "100%", flex: 1, minHeight: 0, overflow: "hidden" }}>
+        {/* Page Header */}
+        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
+          <Typography variant="headlineLarge">
+            My business
+          </Typography>
+          {businessData && (
+            <Button
+              variant="outlined"
+              onClick={() => businessCardRef.current?.openChangeDialog()}
+              sx={{
+                borderRadius: 999,
+                textTransform: "none",
+                fontWeight: 500,
+              }}
+            >
+              Change Business
+            </Button>
+          )}
+        </Box>
 
-      {/* My Business Section */}
-      <div>
-        <h2 className="text-xl font-semibold mb-4">My business</h2>
-        {isLoading ? (
-          <Card className="rounded-2xl shadow-lg">
-            <CardContent className="p-6">
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                <div className="lg:col-span-5">
-                  <div className="aspect-video bg-gray-200 animate-pulse rounded-xl" />
-                </div>
-                <div className="lg:col-span-7 space-y-4">
-                  <div className="h-8 bg-gray-200 animate-pulse rounded-lg w-3/4" />
-                  <div className="h-4 bg-gray-200 animate-pulse rounded-lg w-full" />
-                  <div className="h-4 bg-gray-200 animate-pulse rounded-lg w-2/3" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ) : businessData ? (
-          <DashboardBusinessCard
-            business={{
-              ...businessData,
-              image_url: businessImageUrl,
-              rating: row1Data?.rating_avg ?? businessData.rating ?? null,
-              reviews_count: row1Data?.reviews_total ?? businessData.reviews_count ?? null,
-            }}
-            onBusinessChange={handleBusinessChange}
-          />
-        ) : (
-          <Card className="rounded-2xl shadow-lg">
-            <CardContent className="p-6">
-              <div className="text-center py-8">
-                <p className="text-muted-foreground mb-4">
+        {/* My Business Section */}
+        <Box sx={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+          {isLoading ? (
+            <Card
+              sx={{
+                borderRadius: 2,
+                backgroundColor: (theme) => theme.palette.surfaceContainer?.main || "#FFFFFF",
+                boxShadow: "0px 1px 2px rgba(0,0,0,0.08)",
+                p: 3,
+              }}
+            >
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: { xs: "1fr", md: "2fr 1fr" },
+                  gap: 3,
+                }}
+              >
+                <Skeleton variant="rectangular" height={{ xs: 240, md: 340 }} sx={{ borderRadius: 2 }} />
+                <Stack spacing={2}>
+                  <Skeleton variant="text" width="75%" height={32} />
+                  <Skeleton variant="text" width="100%" />
+                  <Skeleton variant="text" width="66%" />
+                </Stack>
+              </Box>
+            </Card>
+          ) : businessData ? (
+            <BusinessHeroCard
+              ref={businessCardRef}
+              business={{
+                ...businessData,
+                image_url: businessImageUrl,
+                rating: row1Data?.rating_avg ?? businessData.rating ?? null,
+                reviews_count: row1Data?.reviews_total ?? businessData.reviews_count ?? null,
+                socialMediaSection: (
+                  <SocialMediaSection
+                    businessId={businessData.place_id}
+                    initialSnapshots={socialSnapshots}
+                    initialProfiles={socialProfiles}
+                    googleReviewSnapshot={googleReviewSnapshot}
+                  />
+                ),
+              }}
+              onBusinessChange={handleBusinessChange}
+            />
+          ) : (
+            <Card
+              sx={{
+                borderRadius: 2,
+                backgroundColor: (theme) => theme.palette.surfaceContainer?.main || "#FFFFFF",
+                boxShadow: "0px 1px 2px rgba(0,0,0,0.08)",
+              }}
+            >
+              <CardContent sx={{ p: 3, textAlign: "center", py: 4 }}>
+                <Typography
+                  variant="bodyLarge"
+                  sx={{ color: (theme) => theme.palette.onSurfaceVariant?.main || "#444A41", mb: 2 }}
+                >
                   No business data found. Please complete onboarding.
-                </p>
+                </Typography>
                 <Link href="/onboarding/business/search">
-                  <Button className="rounded-xl bg-[#153E23] hover:bg-[#1a4d2a] text-white font-medium">
+                  <Button
+                    variant="contained"
+                    sx={{
+                      borderRadius: 999,
+                      backgroundColor: (theme) => theme.palette.primary.main,
+                      color: (theme) => theme.palette.onPrimary?.main || "#FFFFFF",
+                      textTransform: "none",
+                      fontWeight: 500,
+                    }}
+                  >
                     Add Your Business
                   </Button>
                 </Link>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
+        </Box>
+
+        {/* Watchlist Alerts Widget */}
+        {latestAlerts && latestAlerts.length > 0 && (
+          <Box>
+            <DashboardAlertsWidget initialAlerts={latestAlerts} />
+          </Box>
         )}
-      </div>
 
-      {/* Analytics Section (no heading) */}
-      {businessData && (
-        <SocialMediaSection
-          businessId={businessData.place_id}
-          initialSnapshots={socialSnapshots}
-          initialProfiles={socialProfiles}
-          googleReviewSnapshot={googleReviewSnapshot}
-        />
-      )}
-
-      {/* Watchlist Alerts Widget */}
-      {latestAlerts && latestAlerts.length > 0 && (
-        <div>
-          <DashboardAlertsWidget initialAlerts={latestAlerts} />
-        </div>
-      )}
-
-      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
-    </div>
+        <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+      </Stack>
+    </Container>
   );
 }
 

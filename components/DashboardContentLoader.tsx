@@ -2,7 +2,10 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
-import { Loader2 } from "lucide-react";
+import { Box, Typography, useTheme, useMediaQuery } from "@mui/material";
+import { LoadingSpinner } from "@/src/components/LoadingSpinner";
+
+const drawerWidth = 280;
 
 // Create a context to share loading state
 let globalLoadingState: { isLoading: boolean; setLoading: (loading: boolean) => void } | null = null;
@@ -15,6 +18,8 @@ export function setGlobalLoading(loading: boolean) {
 
 export function DashboardContentLoader({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const theme = useTheme();
+  const isDesktop = useMediaQuery(theme.breakpoints.up("md"));
   const [isLoading, setIsLoading] = useState(false);
   const previousPathname = useRef(pathname);
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -64,19 +69,36 @@ export function DashboardContentLoader({ children }: { children: React.ReactNode
   }, [pathname]);
 
   return (
-    <div className="relative min-h-[400px]">
+    <Box sx={{ position: "relative", minHeight: 400 }}>
       {isLoading && (
-        <div className="fixed left-64 top-0 right-0 bottom-0 z-[100] flex items-center justify-center bg-background/95 backdrop-blur-sm">
-          <div className="flex flex-col items-center gap-4">
-            <Loader2 className="h-10 w-10 animate-spin text-primary" />
-            <p className="text-base font-medium text-foreground">Loading page...</p>
-          </div>
-        </div>
+        <Box
+          sx={{
+            position: "fixed",
+            left: { xs: 0, md: drawerWidth },
+            top: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 100,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: "background.default",
+            backdropFilter: "blur(8px)",
+          }}
+        >
+          <LoadingSpinner message="Loading page..." />
+        </Box>
       )}
-      <div className={isLoading ? "opacity-50 pointer-events-none" : "opacity-100 transition-opacity duration-150"}>
+      <Box
+        sx={{
+          opacity: isLoading ? 0.5 : 1,
+          pointerEvents: isLoading ? "none" : "auto",
+          transition: "opacity 0.15s ease-in-out",
+        }}
+      >
         {children}
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
 }
 

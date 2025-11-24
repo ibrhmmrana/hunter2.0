@@ -146,6 +146,30 @@ export default async function AnalyticsPage({
     .eq("business_place_id", placeId)
     .maybeSingle();
 
+  // Fetch Google review snapshot
+  // Note: google_review_snapshots uses business_id which should match placeId
+  // Use select('*') to get all columns like the dashboard does
+  const { data: googleSnapshot, error: googleSnapshotError } = await serviceSupabase
+    .from("google_review_snapshots")
+    .select("*")
+    .eq("business_id", placeId)
+    .order("snapshot_ts", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (googleSnapshotError) {
+    console.error('[analytics page] Error fetching Google review snapshot:', googleSnapshotError);
+  }
+
+  console.log('[analytics page] Google review snapshot', {
+    placeId,
+    found: !!googleSnapshot,
+    hasNegativeSummary: !!googleSnapshot?.negative_summary,
+    hasPositiveSummary: !!googleSnapshot?.positive_summary,
+    negativeSummary: googleSnapshot?.negative_summary?.substring(0, 50),
+    positiveSummary: googleSnapshot?.positive_summary?.substring(0, 50),
+  });
+
   // Fetch stored punchlines from social_insights
   const { data: storedInsights, error: insightsError } = await serviceSupabase
     .from("social_insights")
@@ -342,6 +366,16 @@ export default async function AnalyticsPage({
       hasTikTokInsight={hasTikTokInsight}
       hasFacebookProfile={hasFacebookProfile}
       hasFacebookInsight={hasFacebookInsight}
+      googleReviewSnapshot={googleSnapshot ? {
+        negative_reviews: googleSnapshot.negative_reviews,
+        positive_reviews: googleSnapshot.positive_reviews,
+        days_since_last_review: googleSnapshot.days_since_last_review,
+        total_reviews: googleSnapshot.total_reviews,
+        reviews_distribution: googleSnapshot.reviews_distribution,
+        negative_summary: googleSnapshot.negative_summary,
+        positive_summary: googleSnapshot.positive_summary,
+        snapshot_ts: googleSnapshot.snapshot_ts,
+      } : null}
     />
   );
 }

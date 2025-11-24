@@ -1,4 +1,4 @@
-import { Sidebar } from "@/components/Sidebar";
+import MaterialShell from "@/src/components/MaterialShell";
 import { DashboardContentLoader } from "@/components/DashboardContentLoader";
 import { GlobalAlertNotifications } from "@/components/alerts/GlobalAlertNotifications";
 
@@ -8,15 +8,12 @@ export default function AppLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-background">
-      <Sidebar />
-      <main className="ml-64 p-6">
+    <MaterialShell>
         <DashboardContentLoader>
           {children}
         </DashboardContentLoader>
-      </main>
       <GlobalAlertNotifications />
-    </div>
+    </MaterialShell>
   );
 }
 

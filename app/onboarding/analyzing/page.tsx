@@ -3,9 +3,21 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, AlertCircle } from "lucide-react";
+import {
+  Box,
+  Card,
+  CardContent,
+  CardHeader,
+  Typography,
+  Button,
+  Alert,
+  AlertTitle,
+  Skeleton,
+  Stack,
+} from "@mui/material";
+import { ErrorOutlineRounded } from "@mui/icons-material";
+import { LoadingSpinner } from "@/src/components/LoadingSpinner";
+import OnboardingShell from "@/src/components/OnboardingShell";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 
 const POLL_INTERVAL = 3000; // 3 seconds
@@ -35,7 +47,6 @@ export default function AnalyzingPage() {
       
       if (userError) {
         console.error('Auth error:', userError);
-        // Don't block if user fetch fails, just proceed without user_id/email
       }
 
       const currentUserId = user?.id || null;
@@ -96,7 +107,6 @@ export default function AnalyzingPage() {
 
       if (queryError) {
         console.error('Polling error:', queryError);
-        // Don't set error state for query errors, just log and continue polling
         return false;
       }
 
@@ -171,7 +181,7 @@ export default function AnalyzingPage() {
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [placeId, triggerIngest, startPolling]); // Only run on mount and if placeId changes
+  }, [placeId, triggerIngest, startPolling]);
 
   // Retry handler
   const handleRetry = useCallback(() => {
@@ -189,58 +199,67 @@ export default function AnalyzingPage() {
   // If no placeId, show error and link back
   if (!placeId) {
     return (
-      <div>
+      <OnboardingShell>
+        <Card>
         <CardHeader>
-          <CardTitle className="text-2xl">Missing Business</CardTitle>
+            <Typography variant="h5" fontWeight={600}>
+              Missing Business
+            </Typography>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-muted-foreground">
+          <CardContent>
+            <Stack spacing={2}>
+              <Typography variant="body2" color="text.secondary">
             No business selected. Please search for your business first.
-          </p>
-          <Link href="/onboarding/business/search">
-            <Button>Go to Search</Button>
-          </Link>
+              </Typography>
+              <Button component={Link} href="/onboarding/business/search" variant="contained">
+                Go to Search
+              </Button>
+            </Stack>
         </CardContent>
-      </div>
+        </Card>
+      </OnboardingShell>
     );
   }
 
   return (
-    <div>
+    <OnboardingShell>
+      <Card>
       <CardHeader>
-        <CardTitle className="text-2xl">Analyzing your business...</CardTitle>
+          <Typography variant="h5" fontWeight={600}>
+            Analyzing your business...
+          </Typography>
       </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="flex flex-col items-center justify-center py-12 space-y-4">
+        <CardContent>
+          <Stack spacing={4}>
+            <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", py: 6 }}>
           {isLoading && !hasTimedOut ? (
             <>
-              <Loader2 className="h-12 w-12 animate-spin text-primary" />
-              <p className="text-muted-foreground text-center">
-                We're gathering insights about your business and competitors...
-              </p>
+                  <LoadingSpinner message="We're gathering insights about your business and competitors..." />
             </>
           ) : error || hasTimedOut ? (
             <>
-              <AlertCircle className="h-12 w-12 text-destructive" />
-              <p className="text-destructive text-center font-medium">
+                  <ErrorOutlineRounded sx={{ fontSize: 48, color: "error.main", mb: 2 }} />
+                  <Typography variant="body1" color="error" fontWeight={500} textAlign="center" sx={{ mb: 2 }}>
                 {error || 'Analysis is taking longer than expected'}
-              </p>
-              <Button onClick={handleRetry} className="mt-4">
+                  </Typography>
+                  <Button onClick={handleRetry} variant="contained" sx={{ mt: 2 }}>
                 Try Again
               </Button>
             </>
           ) : null}
-        </div>
+            </Box>
 
         {/* Skeleton loader */}
         {isLoading && !hasTimedOut && (
-          <div className="space-y-3">
-            <div className="h-4 bg-gray-200 rounded-lg animate-pulse w-3/4"></div>
-            <div className="h-4 bg-gray-200 rounded-lg animate-pulse w-2/3"></div>
-            <div className="h-4 bg-gray-200 rounded-lg animate-pulse w-4/5"></div>
-          </div>
+              <Stack spacing={1.5}>
+                <Skeleton variant="text" width="75%" height={24} />
+                <Skeleton variant="text" width="66%" height={24} />
+                <Skeleton variant="text" width="80%" height={24} />
+              </Stack>
         )}
+          </Stack>
       </CardContent>
-    </div>
+      </Card>
+    </OnboardingShell>
   );
 }

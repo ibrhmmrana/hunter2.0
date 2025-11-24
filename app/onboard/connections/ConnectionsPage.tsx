@@ -4,19 +4,33 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
+  Box,
+  Container,
+  Typography,
+  Card,
+  CardContent,
+  TextField,
+  Button,
+  LinearProgress,
+  Stack,
+  Chip,
+  Link as MuiLink,
+  CircularProgress,
+  Alert,
+} from "@mui/material";
+import {
   Instagram,
   Facebook,
-  Linkedin,
+  LinkedIn,
   ArrowRight,
   ArrowLeft,
-  Loader2,
-  ArrowUpRight,
-  CheckCircle2,
-  AlertCircle,
-} from "lucide-react";
+  OpenInNew,
+  CheckCircle,
+  ErrorOutline,
+} from "@mui/icons-material";
 import Link from "next/link";
-import { Input } from "@/components/ui/input";
 import { useAnalysisStatus } from "@/lib/hooks/useAnalysisStatus";
+import OnboardingShell from "@/src/components/OnboardingShell";
 
 interface ConnectionsPageProps {
   placeId: string;
@@ -34,7 +48,7 @@ interface StepConfig {
   title: string;
   description: string;
   bullets: string[];
-  icon: React.ReactNode;
+  icon: React.ReactElement;
   placeholder: string;
   prefix?: string;
   inputType: "url" | "handle";
@@ -52,7 +66,7 @@ const steps: StepConfig[] = [
       "Analyze engagement patterns",
       "Identify content gaps",
     ],
-    icon: <Instagram className="w-3.5 h-3.5 text-emerald-600" />,
+    icon: <Instagram sx={{ fontSize: 18, color: "primary.main" }} />,
     placeholder: "yourbrand",
     prefix: "instagram.com/@",
     inputType: "handle",
@@ -69,9 +83,14 @@ const steps: StepConfig[] = [
       "Find creator opportunities",
     ],
     icon: (
-      <svg className="w-3.5 h-3.5 text-emerald-600" viewBox="0 0 24 24" fill="currentColor">
+      <Box
+        component="svg"
+        viewBox="0 0 24 24"
+        sx={{ width: 18, height: 18, color: "primary.main" }}
+        fill="currentColor"
+      >
         <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
-      </svg>
+      </Box>
     ),
     placeholder: "yourbrand",
     prefix: "tiktok.com/@",
@@ -88,7 +107,7 @@ const steps: StepConfig[] = [
       "Monitor event promotion",
       "Assess local presence",
     ],
-    icon: <Facebook className="w-3.5 h-3.5 text-emerald-600" />,
+    icon: <Facebook sx={{ fontSize: 18, color: "primary.main" }} />,
     placeholder: "yourbrand",
     prefix: "facebook.com/",
     inputType: "handle",
@@ -104,7 +123,7 @@ const steps: StepConfig[] = [
       "Track company updates",
       "Measure professional reach",
     ],
-    icon: <Linkedin className="w-3.5 h-3.5 text-emerald-600" />,
+    icon: <LinkedIn sx={{ fontSize: 18, color: "primary.main" }} />,
     placeholder: "yourbrand",
     prefix: "linkedin.com/company/",
     inputType: "handle",
@@ -129,17 +148,17 @@ export function ConnectionsPage({
     linkedin: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSkipping, setIsSkipping] = useState(false);
 
-  // Poll analysis status (kickoff should have been called from confirmation)
+  // Poll analysis status
   const analysisStatus = useAnalysisStatus(placeId, 5000);
 
-  // Background preloading: start competitor sync, ranking, and discovery queries while user fills connections
+  // Background preloading
   useEffect(() => {
     if (!placeId) return;
 
     (async () => {
       try {
-        // Preload competitor sync and discovery queries
         await fetch("/api/onboard/preload", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -147,7 +166,6 @@ export function ConnectionsPage({
           keepalive: true,
         });
         
-        // Also trigger ranking API to preload search leaders
         fetch("/api/competitors/ranking", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -169,10 +187,8 @@ export function ConnectionsPage({
     if (value) {
       setIsSubmitting(true);
 
-      // Optimistically update state
       setValues((prev) => ({ ...prev, [step.id]: value }));
 
-      // Fire non-blocking sync
       fetch("/api/onboard/social-sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -186,103 +202,59 @@ export function ConnectionsPage({
         console.error(`[Connections] Failed to sync ${step.id}:`, err);
       });
 
-      // For Instagram, trigger analysis
+      // Trigger analysis for social platforms
       if (step.id === "instagram") {
-        console.log("[connections] instagram submitted", { placeId, handle: value });
         fetch("/api/social/instagram/analyze", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            placeId,
-            handle: value,
-          }),
+          body: JSON.stringify({ placeId, handle: value }),
           keepalive: true,
-        })
-          .then((res) => {
-            console.log("[connections] Instagram analysis response", { status: res.status, ok: res.ok });
-            if (!res.ok) {
-              return res.json().then((data) => {
-                console.error("[Connections] Instagram analysis failed", { status: res.status, data });
-              });
-            }
-          })
-          .catch((err) => {
+        }).catch((err) => {
             console.error("[Connections] Failed to trigger Instagram analysis:", err);
-            // Continue anyway - analysis will retry in background
           });
       }
 
-      // For TikTok, trigger analysis
       if (step.id === "tiktok") {
-        console.log("[connections] tiktok submitted", { placeId, handle: value });
         fetch("/api/social/tiktok/analyze", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            placeId,
-            handle: value,
-          }),
+          body: JSON.stringify({ placeId, handle: value }),
           keepalive: true,
-        })
-          .then((res) => {
-            console.log("[connections] TikTok analysis response", { status: res.status, ok: res.ok });
-            if (!res.ok) {
-              return res.json().then((data) => {
-                console.error("[Connections] TikTok analysis failed", { status: res.status, data });
-              });
-            }
-          })
-          .catch((err) => {
+        }).catch((err) => {
             console.error("[Connections] Failed to trigger TikTok analysis:", err);
-            // Continue anyway - analysis will retry in background
           });
       }
 
-      // For Facebook, trigger analysis
       if (step.id === "facebook") {
-        console.log("[connections] facebook submitted", { placeId, handle: value });
         fetch("/api/social/facebook/analyze", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            placeId,
-            handle: value,
-          }),
+          body: JSON.stringify({ placeId, handle: value }),
           keepalive: true,
-        })
-          .then((res) => {
-            console.log("[connections] Facebook analysis response", { status: res.status, ok: res.ok });
-            if (!res.ok) {
-              return res.json().then((data) => {
-                console.error("[Connections] Facebook analysis failed", { status: res.status, data });
-              });
-            }
-          })
-          .catch((err) => {
+        }).catch((err) => {
             console.error("[Connections] Failed to trigger Facebook analysis:", err);
-            // Continue anyway - analysis will retry in background
           });
       }
 
-      // Small delay for UX
       await new Promise((resolve) => setTimeout(resolve, 200));
       setIsSubmitting(false);
     }
 
-    // Move to next step
     if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
     } else {
-      // Final step - navigate to analytics
       router.push(`/onboard/analytics?place_id=${encodeURIComponent(placeId)}`);
     }
   };
 
-  const handleSkip = () => {
+  const handleSkip = async () => {
     if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
     } else {
-      // Final step - navigate to analytics
+      // On LinkedIn step (last step), show loading animation
+      setIsSkipping(true);
+      // Small delay to show loading state
+      await new Promise((resolve) => setTimeout(resolve, 500));
       router.push(`/onboard/analytics?place_id=${encodeURIComponent(placeId)}`);
     }
   };
@@ -299,74 +271,154 @@ export function ConnectionsPage({
   const meta = [category, city].filter(Boolean).join(" · ");
 
   return (
-    <main className="min-h-screen bg-[#f5f7fb] text-slate-900">
-      <div className="max-w-5xl mx-auto px-6 pt-10 pb-16">
+    <OnboardingShell maxWidth="lg">
+      {/* Loading Overlay when skipping on LinkedIn step */}
+      {isSkipping && currentStep === steps.length - 1 && (
+        <Box
+          sx={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            bgcolor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+            gap: 3,
+          }}
+        >
+          <Box
+            sx={{
+              bgcolor: "background.paper",
+              borderRadius: 3,
+              p: 4,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 2,
+              maxWidth: 400,
+              mx: 2,
+            }}
+          >
+            <CircularProgress size={48} sx={{ color: "primary.main" }} />
+            <Typography variant="h6" sx={{ fontWeight: 500, textAlign: "center" }}>
+              Preparing your analysis...
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center" }}>
+              We're gathering insights about your business and competitors. This will just take a moment.
+            </Typography>
+          </Box>
+        </Box>
+      )}
+      <Box sx={{ width: "100%" }}>
         {/* Hero Header */}
-        <header className="mb-6">
-          <p className="text-[10px] font-semibold tracking-[0.18em] text-emerald-600 uppercase">
+        <Box sx={{ mb: 3 }}>
+          <Typography
+            variant="overline"
+            sx={{
+              fontSize: "10px",
+              letterSpacing: "0.18em",
+              color: "primary.main",
+              fontWeight: 600,
+            }}
+          >
             Profile setup
-          </p>
-          <div className="mt-1 flex items-baseline justify-between gap-4">
-            <div>
-              <h1 className="text-3xl font-semibold text-slate-900">{businessName}</h1>
-              {meta && <p className="mt-1 text-sm text-slate-500">{meta}</p>}
-              <p className="mt-2 text-sm text-slate-600">
+          </Typography>
+          <Box sx={{ mt: 1, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 2 }}>
+            <Box>
+              <Typography variant="h3" sx={{ mb: 0.5, fontWeight: 500 }}>
+                {businessName}
+              </Typography>
+              {meta && (
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                  {meta}
+                </Typography>
+              )}
+              <Typography variant="body2" color="text.secondary">
                 We're already analysing your market in the background. Connect your profiles so we can go deeper.
-              </p>
-            </div>
-            <div className="flex flex-col items-end gap-2">
+              </Typography>
+            </Box>
+            <Stack spacing={1} alignItems="flex-end">
               {googleMapsUrl && (
-                <Link
+                <MuiLink
+                  component={Link}
                   href={googleMapsUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 hover:text-emerald-900 transition-colors"
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 0.5,
+                    fontSize: "12px",
+                    fontWeight: 500,
+                    color: "primary.main",
+                    textDecoration: "none",
+                    "&:hover": { color: "primary.dark" },
+                  }}
                 >
                   View on Maps
-                  <ArrowUpRight className="w-3 h-3" />
-                </Link>
+                  <OpenInNew sx={{ fontSize: 16 }} />
+                </MuiLink>
               )}
-              {/* Analysis Status Indicator */}
+              {/* Analysis Status */}
               {analysisStatus.status === "running" && (
-                <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
-                  <Loader2 className="w-3 h-3 animate-spin text-emerald-500" />
-                  <span>Preparing insights… {analysisStatus.progress}%</span>
-                </div>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, fontSize: "10px", color: "text.secondary" }}>
+                  <CircularProgress size={12} sx={{ color: "primary.main" }} />
+                  <Typography variant="caption">
+                    Preparing insights… {analysisStatus.progress}%
+                  </Typography>
+                </Box>
               )}
               {analysisStatus.status === "complete" && (
-                <div className="flex items-center gap-1.5 text-[10px] text-emerald-600">
-                  <CheckCircle2 className="w-3 h-3" />
-                  <span>Insights ready ✓</span>
-                </div>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, fontSize: "10px", color: "primary.main" }}>
+                  <CheckCircle sx={{ fontSize: 12 }} />
+                  <Typography variant="caption">Insights ready ✓</Typography>
+                </Box>
               )}
               {analysisStatus.status === "error" && (
-                <div className="flex items-center gap-1.5 text-[10px] text-amber-600">
-                  <AlertCircle className="w-3 h-3" />
-                  <span>We'll retry in the background. You can still continue.</span>
-                </div>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, fontSize: "10px", color: "warning.main" }}>
+                  <ErrorOutline sx={{ fontSize: 12 }} />
+                  <Typography variant="caption">
+                    We'll retry in the background. You can still continue.
+                  </Typography>
+                </Box>
               )}
-            </div>
-          </div>
-        </header>
+            </Stack>
+          </Box>
+        </Box>
 
         {/* Progress Indicator */}
-        <div className="mb-10">
-          <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1">
-            <span>Step {currentStep + 1} of {steps.length}</span>
-            <span>{Math.round(progress)}% complete</span>
-          </div>
-          <div className="h-1.5 w-full rounded-full bg-slate-200 overflow-hidden">
-            <motion.div
-              className="h-full bg-emerald-500"
-              initial={false}
-              animate={{ width: `${progress}%` }}
-              transition={{ duration: 0.25, ease: "easeOut" }}
+        <Box sx={{ mb: 4 }}>
+          <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: "11px" }}>
+              Step {currentStep + 1} of {steps.length}
+            </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: "11px" }}>
+              {Math.round(progress)}% complete
+            </Typography>
+          </Box>
+          <LinearProgress
+            variant="determinate"
+            value={progress}
+            sx={{
+              height: 6,
+              borderRadius: 999,
+              backgroundColor: "surface.variant",
+              "& .MuiLinearProgress-bar": {
+                borderRadius: 999,
+                backgroundColor: "primary.main",
+              },
+            }}
             />
-          </div>
-        </div>
+        </Box>
 
         {/* Step Panel */}
-        <section className="grid grid-cols-1 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1.8fr)] gap-10 p-8 md:p-10 rounded-3xl bg-white border border-slate-200 shadow-[0_14px_45px_rgba(15,23,42,0.07)]">
+        <Card sx={{ borderRadius: 3, p: { xs: 3, md: 4 } }}>
+          <CardContent>
+            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1.4fr 1.8fr" }, gap: 4 }}>
           <AnimatePresence mode="wait">
             <motion.div
               key={currentStep}
@@ -374,33 +426,53 @@ export function ConnectionsPage({
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 8 }}
               transition={{ duration: 0.2, ease: "easeOut" }}
-              className="space-y-4"
-            >
-              {/* Left Column: Context */}
-              <div className="space-y-4">
-                {/* Platform Pill */}
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-[11px] font-medium text-slate-700">
-                  {currentStepConfig.icon}
-                  <span>{currentStepConfig.label}</span>
-                </div>
+                >
+                  <Stack spacing={2}>
+                    {/* Platform Chip */}
+                    <Chip
+                      icon={currentStepConfig.icon}
+                      label={currentStepConfig.label}
+                      size="small"
+                      sx={{
+                        width: "fit-content",
+                        bgcolor: "surfaceContainerHigh.main",
+                        color: "primary.main",
+                        fontWeight: 500,
+                        fontSize: "11px",
+                      }}
+                    />
 
                 {/* Title */}
-                <h2 className="text-xl font-semibold text-slate-900">
+                    <Typography variant="h5" sx={{ fontWeight: 500 }}>
                   {currentStepConfig.title}
-                </h2>
+                    </Typography>
 
                 {/* Description */}
-                <p className="text-sm text-slate-600 leading-relaxed">
+                    <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.7 }}>
                   {currentStepConfig.description}
-                </p>
+                    </Typography>
 
                 {/* Bullet Points */}
-                <ul className="space-y-1.5 text-[11px] text-slate-500">
+                    <Box component="ul" sx={{ m: 0, pl: 2, listStyle: "none" }}>
                   {currentStepConfig.bullets.map((bullet, idx) => (
-                    <li key={idx}>• {bullet}</li>
+                        <Box
+                          key={idx}
+                          component="li"
+                          sx={{
+                            fontSize: "11px",
+                            color: "text.secondary",
+                            mb: 0.5,
+                            "&::before": {
+                              content: '"•"',
+                              mr: 1,
+                            },
+                          }}
+                        >
+                          {bullet}
+                        </Box>
                   ))}
-                </ul>
-              </div>
+                    </Box>
+                  </Stack>
             </motion.div>
           </AnimatePresence>
 
@@ -412,21 +484,20 @@ export function ConnectionsPage({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.18, ease: "easeOut" }}
-              className="flex flex-col gap-4"
             >
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium text-slate-600">
+                  <Stack spacing={2}>
+                    <Box>
+                      <Typography variant="caption" sx={{ fontSize: "12px", fontWeight: 500, mb: 0.5, display: "block" }}>
                   {currentStepConfig.label} URL or handle
-                </label>
+                      </Typography>
 
-                {/* Input */}
                 {currentStepConfig.prefix ? (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-slate-500 whitespace-nowrap">
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                          <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: "nowrap" }}>
                       {currentStepConfig.prefix}
-                    </span>
-                    <input
-                      type="text"
+                          </Typography>
+                          <TextField
+                            fullWidth
                       placeholder={currentStepConfig.placeholder}
                       value={currentValue}
                       onChange={(e) => {
@@ -440,12 +511,13 @@ export function ConnectionsPage({
                           handleSave();
                         }
                       }}
-                      className="flex-1 w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/80 focus:border-emerald-500 transition"
                       autoFocus
+                            size="small"
                     />
-                  </div>
+                        </Box>
                 ) : (
-                  <input
+                        <TextField
+                          fullWidth
                     type="url"
                     placeholder={currentStepConfig.placeholder}
                     value={currentValue}
@@ -460,63 +532,58 @@ export function ConnectionsPage({
                         handleSave();
                       }
                     }}
-                    className="w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/80 focus:border-emerald-500 transition"
                     autoFocus
+                          size="small"
                   />
                 )}
 
-                {/* Helper Text */}
-                <p className="text-[10px] text-slate-400">
+                      <Typography variant="caption" sx={{ fontSize: "10px", color: "text.disabled", mt: 0.5, display: "block" }}>
                   {currentStepConfig.helperText}
-                </p>
-              </div>
+                      </Typography>
+                    </Box>
 
               {/* Actions */}
-              <div className="mt-2 flex items-center justify-between gap-4">
-                <div>
+                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mt: 1 }}>
+                      <Box>
                   {currentStep > 0 && (
-                    <button
-                      type="button"
+                          <Button
+                            startIcon={<ArrowLeft />}
                       onClick={handleBack}
-                      className="text-xs text-slate-500 hover:text-slate-800 inline-flex items-center gap-1 transition-colors"
-                    >
-                      <ArrowLeft className="w-3 h-3" />
+                            size="small"
+                            sx={{ fontSize: "12px", color: "text.secondary" }}
+                          >
                       Back
-                    </button>
+                          </Button>
                   )}
-                </div>
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
+                      </Box>
+                      <Stack direction="row" spacing={1.5} alignItems="center">
+                        <Button
                     onClick={handleSkip}
-                    className="text-xs text-slate-500 hover:text-slate-800 transition-colors"
+                          disabled={isSkipping}
+                          size="small"
+                          sx={{ fontSize: "12px", color: "text.secondary" }}
+                          startIcon={isSkipping && currentStep === steps.length - 1 ? <CircularProgress size={14} /> : undefined}
                   >
-                    Skip for now
-                  </button>
-                  <button
-                    type="button"
+                    {isSkipping && currentStep === steps.length - 1 ? "Loading analysis..." : "Skip for now"}
+                        </Button>
+                        <Button
                     onClick={handleSave}
                     disabled={isSubmitting || !currentValue.trim()}
-                    className="inline-flex items-center justify-center px-6 py-2.5 rounded-2xl bg-[#153E23] text-white text-sm font-medium hover:bg-[#1a4d2a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          variant="contained"
+                          endIcon={<ArrowRight />}
+                          size="medium"
                   >
-                    {currentStep < steps.length - 1 ? (
-                      <>
-                        Save & continue
-                        <ArrowRight className="w-4 h-4 ml-2" />
-                      </>
-                    ) : (
-                      <>
-                        Continue to analysis
-                        <ArrowRight className="w-4 h-4 ml-2" />
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
+                          {currentStep < steps.length - 1 ? "Save & continue" : "Continue to analysis"}
+                        </Button>
+                      </Stack>
+                    </Box>
+                  </Stack>
             </motion.div>
           </AnimatePresence>
-        </section>
-      </div>
-    </main>
+            </Box>
+          </CardContent>
+        </Card>
+      </Box>
+    </OnboardingShell>
   );
 }

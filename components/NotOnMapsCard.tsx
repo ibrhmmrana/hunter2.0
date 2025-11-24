@@ -1,9 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MapPin } from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  Button,
+  Typography,
+  Box,
+  Stack,
+  Avatar,
+} from "@mui/material";
+import LocationOnRounded from "@mui/icons-material/LocationOnRounded";
 
 interface NotOnMapsCardProps {
   onBack?: () => void;
@@ -11,42 +19,57 @@ interface NotOnMapsCardProps {
 
 export function NotOnMapsCard({ onBack }: NotOnMapsCardProps) {
   return (
-    <div className="rounded-2xl bg-white shadow-soft p-6 lg:p-8">
-      <Card className="rounded-2xl border shadow-lg">
+    <Card sx={{ borderRadius: 3 }}>
       <CardHeader>
-        <div className="flex items-center gap-3 mb-2">
-          <div className="p-3 bg-gray-100 rounded-full">
-            <MapPin className="h-6 w-6 text-gray-600" />
-          </div>
-          <CardTitle className="text-2xl">Not on Google Maps</CardTitle>
-        </div>
+        <Stack direction="row" spacing={2} alignItems="center">
+          <Avatar sx={{ bgcolor: "surface.variant" }}>
+            <LocationOnRounded sx={{ color: "text.secondary" }} />
+          </Avatar>
+          <Typography variant="h5" fontWeight={600}>
+            Not on Google Maps
+          </Typography>
+        </Stack>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <p className="text-gray-600 leading-relaxed">
+      <CardContent>
+        <Stack spacing={3}>
+          <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.7 }}>
           You&apos;re invisible to &quot;near me&quot; searches. When customers search for businesses
           like yours nearby, your business won&apos;t appear in the results.
-        </p>
+          </Typography>
 
-        <div className="pt-4 space-y-3">
-          <Link href="/onboarding/verify">
-            <Button className="w-full h-12 rounded-xl bg-[#153E23] hover:bg-[#1a4d2a] text-white font-medium">
+          <Stack spacing={1.5} sx={{ pt: 2 }}>
+            <Button
+              component={Link}
+              href="/onboarding/verify"
+              variant="contained"
+              fullWidth
+              size="large"
+              sx={{
+                borderRadius: 3,
+                py: 1.5,
+                fontSize: "1rem",
+                fontWeight: 600,
+              }}
+            >
               Create & Verify My Profile
             </Button>
-          </Link>
 
           {onBack && (
             <Button
               onClick={onBack}
-              variant="outline"
-              className="w-full h-11 rounded-xl border-gray-200"
+                variant="outlined"
+                fullWidth
+                sx={{
+                  borderRadius: 3,
+                  py: 1.5,
+                }}
             >
               Go back to search
             </Button>
           )}
-        </div>
+          </Stack>
+        </Stack>
       </CardContent>
     </Card>
-    </div>
   );
 }
-

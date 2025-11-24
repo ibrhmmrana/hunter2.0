@@ -4,10 +4,29 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { MapPin, Star, Phone, Clock, ExternalLink, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import {
+  Box,
+  Card,
+  CardContent,
+  Button,
+  Typography,
+  Chip,
+  IconButton,
+  Stack,
+  Avatar,
+  CircularProgress,
+  alpha,
+} from "@mui/material";
+import {
+  LocationOnRounded,
+  StarRounded,
+  PhoneRounded,
+  AccessTimeRounded,
+  OpenInNewRounded,
+  ChevronLeftRounded,
+  ChevronRightRounded,
+} from "@mui/icons-material";
 import type { ConfirmBusinessData } from "@/app/api/places/confirm/route";
-import { cn } from "@/lib/utils";
 
 interface ConfirmBusinessViewProps {
   data: ConfirmBusinessData;
@@ -15,9 +34,19 @@ interface ConfirmBusinessViewProps {
   isPreparing?: boolean;
   onConfirm?: () => void;
   onReject?: () => void;
+  confirmButtonText?: string;
+  rejectButtonText?: string;
 }
 
-export function ConfirmBusinessView({ data, placeId, isPreparing = false, onConfirm, onReject }: ConfirmBusinessViewProps) {
+export function ConfirmBusinessView({ 
+  data, 
+  placeId, 
+  isPreparing = false, 
+  onConfirm, 
+  onReject,
+  confirmButtonText = "Yes — Continue to Analysis",
+  rejectButtonText = "Pick a different business"
+}: ConfirmBusinessViewProps) {
   const router = useRouter();
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
@@ -121,266 +150,453 @@ export function ConfirmBusinessView({ data, placeId, isPreparing = false, onConf
     : data.image_url || null;
 
   return (
-    <React.Fragment>
-      <div className="confirm-business-view">
-        <div className="rounded-xl border border-slate-200 bg-white p-6 lg:p-8">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Left Column - Media (sticky on desktop) */}
-            <div className="lg:col-span-7 lg:sticky lg:top-6 lg:self-start space-y-4">
-              {/* Hero Image */}
-              <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200 shadow-lg group">
+    <Card 
+      variant="filled"
+      sx={{ 
+        borderRadius: 2,
+        backgroundColor: (theme) => theme.palette.surfaceContainer?.main || "#FFFFFF",
+        boxShadow: "0px 1px 2px rgba(0,0,0,0.08)",
+        overflow: "hidden",
+        width: { xs: "95vw", sm: "90vw", md: "85vw", lg: "75vw" },
+        maxWidth: "1000px",
+        display: "flex",
+        flexDirection: { xs: "column", sm: "row" },
+        mx: "auto",
+      }}
+    >
+      {/* Image Section - Left Side */}
+      <Box
+        sx={{
+          position: "relative",
+          width: { xs: "100%", sm: "50%" },
+          aspectRatio: "1 / 1",
+          overflow: "hidden",
+          bgcolor: (theme) => theme.palette.surfaceContainerLow?.main || "#E9EEE4",
+          flexShrink: 0,
+        }}
+        className="group"
+      >
                 {heroImageUrl && !imageErrors.has(currentPhotoIndex) ? (
                   <>
                     <Image
                       src={heroImageUrl}
                       alt={`Photo of ${data.name}`}
                       fill
-                      className="object-cover"
+                      style={{ objectFit: "cover" }}
                       sizes="(max-width: 1024px) 100vw, 60vw"
                       onError={() => setImageErrors((prev) => new Set(prev).add(currentPhotoIndex))}
                       unoptimized={heroImageUrl.startsWith('/api/places/photo')}
                     />
                     
-                    {/* Overlay Gradient */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                    
-                    {/* Top Badges - Categories */}
-                    {displayCategories.length > 0 && (
-                      <div className="absolute top-4 left-4 flex flex-wrap gap-2">
-                        {displayCategories.map((cat, idx) => (
-                          <span
-                            key={idx}
-                            className="px-3 py-1 text-xs font-medium bg-white/90 backdrop-blur-sm text-gray-900 rounded-full"
-                          >
-                            {cat.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    
-                    {/* Bottom Info Overlay */}
-                    <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
-                      <h1 className="text-2xl font-bold mb-1 drop-shadow-lg">{data.name}</h1>
-                      {data.rating !== undefined && (
-                        <div className="flex items-center gap-2">
-                          <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
-                          <span className="font-semibold">{data.rating.toFixed(1)}</span>
-                          {data.reviews_count && (
-                            <span className="text-white/80 text-sm">
-                              ({data.reviews_count.toLocaleString()})
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
 
                     {/* Navigation Arrows */}
                     {allPhotos.length > 1 && (
                       <>
-                        <button
+                        <IconButton
                           onClick={handlePreviousPhoto}
-                          className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-2.5 opacity-0 group-hover:opacity-100 transition-opacity z-10 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-white motion-safe:transition-opacity"
+                          size="small"
+                          sx={{
+                            position: "absolute",
+                            left: { xs: 0.5, sm: 1 },
+                            top: "50%",
+                            transform: "translateY(-50%)",
+                            bgcolor: alpha("#000", 0.5),
+                            color: "white",
+                            opacity: 0,
+                            width: { xs: 24, sm: 32 },
+                            height: { xs: 24, sm: 32 },
+                            "&:hover": { bgcolor: alpha("#000", 0.7), opacity: 1 },
+                            ".group:hover &": { opacity: 1 },
+                            "&:focus": { opacity: 1 },
+                          }}
                           aria-label="Previous photo"
                         >
-                          <ChevronLeft className="h-6 w-6" />
-                        </button>
-                        <button
+                          <ChevronLeftRounded sx={{ fontSize: { xs: 16, sm: 20 } }} />
+                        </IconButton>
+                        <IconButton
                           onClick={handleNextPhoto}
-                          className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-2.5 opacity-0 group-hover:opacity-100 transition-opacity z-10 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-white motion-safe:transition-opacity"
+                          size="small"
+                          sx={{
+                            position: "absolute",
+                            right: { xs: 0.5, sm: 1 },
+                            top: "50%",
+                            transform: "translateY(-50%)",
+                            bgcolor: alpha("#000", 0.5),
+                            color: "white",
+                            opacity: 0,
+                            width: { xs: 24, sm: 32 },
+                            height: { xs: 24, sm: 32 },
+                            "&:hover": { bgcolor: alpha("#000", 0.7), opacity: 1 },
+                            ".group:hover &": { opacity: 1 },
+                            "&:focus": { opacity: 1 },
+                          }}
                           aria-label="Next photo"
                         >
-                          <ChevronRight className="h-6 w-6" />
-                        </button>
+                          <ChevronRightRounded sx={{ fontSize: { xs: 16, sm: 20 } }} />
+                        </IconButton>
                         
                         {/* Photo Counter */}
-                        <div className="absolute bottom-4 right-4 bg-black/50 text-white text-xs px-3 py-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity motion-safe:transition-opacity">
-                          {currentPhotoIndex + 1} / {allPhotos.length}
-                        </div>
+                        {allPhotos.length > 1 && (
+                          <Box
+                            sx={{
+                              position: "absolute",
+                              bottom: { xs: 0.5, sm: 1 },
+                              right: { xs: 0.5, sm: 1 },
+                              bgcolor: alpha("#000", 0.5),
+                              color: "white",
+                              px: { xs: 1, sm: 1.5 },
+                              py: { xs: 0.5, sm: 0.75 },
+                              borderRadius: 999,
+                              fontSize: { xs: "0.625rem", sm: "0.75rem" },
+                              opacity: 0,
+                              ".group:hover &": { opacity: 1 },
+                            }}
+                          >
+                            {currentPhotoIndex + 1} / {allPhotos.length}
+                          </Box>
+                        )}
                       </>
                     )}
                   </>
                 ) : (
                   /* Placeholder when no photo */
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
-                    <div className="w-24 h-24 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center mb-4">
-                      <span className="text-3xl font-bold text-white">
-                        {getInitials(data.name)}
-                      </span>
-                    </div>
-                    <p className="text-white/80 font-medium">{data.name}</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Thumbnail Rail */}
-              {allPhotos.length > 1 && (
-                <div
-                  ref={thumbnailRef}
-                  className="flex gap-2 overflow-x-auto scrollbar-hide scroll-smooth snap-x snap-mandatory pb-2"
-                  role="tablist"
-                  aria-label="Photo thumbnails"
-                >
-                  {allPhotos.map((photo, index) => {
-                    const isActive = index === currentPhotoIndex;
-                    const thumbnailUrl = buildPhotoUrl(photo.ref, 240);
-
-                    return (
-                      <button
-                        key={index}
-                        onClick={() => handleThumbnailClick(index)}
-                        className={cn(
-                          "relative flex-shrink-0 w-20 h-20 rounded-xl overflow-hidden border-2 transition-all snap-start",
-                          "focus:outline-none focus:ring-2 focus:ring-[#153E23] focus:ring-offset-2",
-                          "motion-safe:transition-all",
-                          isActive
-                            ? "border-[#153E23] ring-2 ring-[#153E23] ring-offset-1 motion-safe:scale-105"
-                            : "border-gray-200 hover:border-gray-300"
-                        )}
-                        aria-label={`View photo ${index + 1}`}
-                        aria-selected={isActive}
-                        role="tab"
-                      >
-                        {!imageErrors.has(index) ? (
-                          <Image
-                            src={thumbnailUrl}
-                            alt={`${data.name} thumbnail ${index + 1}`}
-                            fill
-                            className="object-cover"
-                            sizes="80px"
-                            onError={() => setImageErrors((prev) => new Set(prev).add(index))}
-                            unoptimized
-                          />
-                        ) : (
-                          <div className="absolute inset-0 bg-gray-200 flex items-center justify-center">
-                            <MapPin className="h-5 w-5 text-gray-400" />
-                          </div>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* Right Column - Details & Actions */}
-            <div className="lg:col-span-5 space-y-6">
-              {/* Business Name */}
-              <div>
-                <h2 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-4 leading-tight">
-                  {data.name}
-                </h2>
-                
-                {/* Meta Chips */}
-                <div className="flex flex-col gap-3">
-                  {/* Address */}
-                  <div className="flex items-start gap-2 text-sm text-gray-600">
-                    <MapPin className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                    <p className="line-clamp-2">{data.address}</p>
-                  </div>
-                  
-                  {/* Phone */}
-                  {data.phone && (
-                    <a
-                      href={`tel:${data.phone}`}
-                      className="flex items-center gap-2 text-sm text-gray-600 hover:text-[#153E23] transition-colors"
-                    >
-                      <Phone className="h-4 w-4" />
-                      <span>{data.phone}</span>
-                    </a>
-                  )}
-                  
-                  {/* Open/Closed Status */}
-                  {data.is_open_now !== undefined && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <Clock className="h-4 w-4" />
-                      <span className={cn(
-                        "px-2 py-1 rounded-full text-xs font-medium",
-                        data.is_open_now
-                          ? "bg-green-100 text-green-700"
-                          : "bg-red-100 text-red-700"
-                      )}>
-                        {data.is_open_now ? "Open now" : "Closed"}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Category Chips */}
-              {data.categories && data.categories.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {displayCategories.map((cat, idx) => (
-                    <span
-                      key={idx}
-                      className="px-3 py-1.5 text-xs font-medium bg-gray-100 text-gray-700 rounded-full"
-                    >
-                      {cat.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
-                    </span>
-                  ))}
-                  {additionalCategoriesCount > 0 && (
-                    <span className="px-3 py-1.5 text-xs font-medium bg-gray-100 text-gray-500 rounded-full">
-                      +{additionalCategoriesCount}
-                    </span>
-                  )}
-                </div>
-              )}
-
-              {/* Mini KPI Row */}
-              <div className="flex flex-wrap items-center gap-4 text-sm">
-                {data.rating !== undefined && (
-                  <div className="flex items-center gap-1.5">
-                    <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                    <span className="font-semibold text-gray-900">{data.rating.toFixed(1)}</span>
-                    {data.reviews_count && (
-                      <span className="text-gray-600">
-                        ({data.reviews_count.toLocaleString()} reviews)
-                      </span>
-                    )}
-                  </div>
-                )}
-                
-                {data.google_maps_url && (
-                  <Link
-                    href={data.google_maps_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-[#153E23] transition-colors"
+                  <Box
+                    sx={{
+                      position: "absolute",
+                      inset: 0,
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "text.secondary",
+                    }}
                   >
-                    <ExternalLink className="h-4 w-4" />
-                    <span>View on Google Maps</span>
-                  </Link>
+                    <Avatar sx={{ width: { xs: "12vw", sm: "10vw", md: "8vw" }, height: { xs: "12vw", sm: "10vw", md: "8vw" }, maxWidth: "64px", maxHeight: "64px", bgcolor: alpha("#fff", 0.2), mb: 1 }}>
+                      <Typography variant="h5" fontWeight={700} sx={{ fontSize: { xs: "0.875rem", sm: "1rem", md: "1.25rem" } }}>
+                        {getInitials(data.name)}
+                      </Typography>
+                    </Avatar>
+                    <Typography variant="body1" fontWeight={500} sx={{ color: "white", fontSize: { xs: "0.75rem", sm: "0.875rem", md: "1rem" } }}>
+                      {data.name}
+                    </Typography>
+                  </Box>
                 )}
-              </div>
+      </Box>
 
-              {/* Action Bar - Sticky on desktop */}
-              <div className="pt-4 space-y-3 lg:sticky lg:bottom-6">
-                <Button
-                  onClick={handleConfirm}
-                  disabled={isPreparing}
-                  className="w-full h-12 rounded-xl bg-[#153E23] hover:bg-[#1a4d2a] text-white font-medium shadow-md hover:shadow-lg transition-all focus:outline-none focus:ring-2 focus:ring-[#153E23] focus:ring-offset-2 active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
+      {/* Content Section - Right Side */}
+      <CardContent sx={{ 
+        p: { xs: 2, sm: 2.5, md: 3 }, 
+        "&:last-child": { pb: { xs: 2, sm: 2.5, md: 3 } }, 
+        display: "flex", 
+        flexDirection: "column", 
+        flex: 1,
+        width: { xs: "100%", sm: "50%" },
+      }}>
+        {/* Business Name */}
+        <Typography 
+          variant="h5" 
+          sx={{ 
+            fontWeight: 500, 
+            mb: 1,
+            fontSize: { xs: "1rem", sm: "1.25rem", md: "1.5rem" },
+            lineHeight: 1.2,
+          }}
+        >
+          {data.name}
+        </Typography>
+
+        {/* Address */}
+        {data.address && (
+          <Typography 
+            variant="bodyMedium" 
+            sx={{ 
+              color: (theme) => theme.palette.onSurfaceVariant?.main || "#444A41",
+              fontSize: { xs: "0.75rem", sm: "0.875rem", md: "1rem" },
+              mb: 2,
+              lineHeight: 1.4,
+            }}
+          >
+            {data.address}
+          </Typography>
+        )}
+
+        {/* Rating with Star */}
+        {data.rating !== undefined && (
+          <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: 2 }}>
+            <StarRounded
+              sx={{
+                color: "#FFC107",
+                fontSize: { xs: 18, sm: 20, md: 22 },
+                fill: "#FFC107",
+              }}
+            />
+            <Typography variant="bodyLarge" sx={{ fontWeight: 500, fontSize: { xs: "0.875rem", sm: "1rem", md: "1.125rem" } }}>
+              {data.rating.toFixed(1)}
+            </Typography>
+            {data.reviews_count && (
+              <Typography variant="bodyMedium" sx={{ color: (theme) => theme.palette.onSurfaceVariant?.main || "#444A41", fontSize: { xs: "0.75rem", sm: "0.875rem", md: "1rem" } }}>
+                ({data.reviews_count.toLocaleString()} reviews)
+              </Typography>
+            )}
+          </Stack>
+        )}
+
+        {/* Supporting Info */}
+        <Stack spacing={1.5} sx={{ mb: 2, flex: 1 }}>
+          {/* Phone */}
+          {data.phone && (
+            <Stack direction="row" spacing={1} alignItems="center">
+              <PhoneRounded sx={{ fontSize: { xs: 16, sm: 18, md: 20 }, color: (theme) => theme.palette.onSurfaceVariant?.main || "#444A41" }} />
+              <Typography 
+                variant="bodyMedium" 
+                component="a"
+                href={`tel:${data.phone}`}
+                sx={{
+                  color: (theme) => theme.palette.onSurface?.main || "#1B1C19",
+                  textDecoration: "none",
+                  fontSize: { xs: "0.875rem", sm: "1rem", md: "1.125rem" },
+                  "&:hover": { color: (theme) => theme.palette.primary.main },
+                }}
+              >
+                {data.phone}
+              </Typography>
+            </Stack>
+          )}
+
+          {/* Open/Closed Status */}
+          {data.is_open_now !== undefined && (
+            <Stack direction="row" spacing={0.75} alignItems="center">
+              <AccessTimeRounded sx={{ fontSize: { xs: 14, sm: 16, md: 18 }, color: (theme) => theme.palette.onSurfaceVariant?.main || "#444A41" }} />
+              <Chip
+                label={data.is_open_now ? "Open now" : "Closed"}
+                size="small"
+                sx={{
+                  bgcolor: data.is_open_now 
+                    ? (theme) => theme.palette.success?.light || "#C8E6C9"
+                    : (theme) => theme.palette.error?.light || "#FFCDD2",
+                  color: "#FFFFFF",
+                  fontSize: { xs: "0.625rem", sm: "0.6875rem", md: "0.75rem" },
+                  fontWeight: 400,
+                  height: { xs: 20, sm: 22, md: 24 },
+                  px: { xs: 1, sm: 1.25 },
+                  opacity: 0.8,
+                }}
+              />
+            </Stack>
+          )}
+
+          {/* Categories */}
+          {data.categories && data.categories.length > 0 && (
+            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, mt: 0.5 }}>
+              {displayCategories.map((cat, idx) => (
+                <Chip
+                  key={idx}
+                  label={cat.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
+                  size="small"
+                  sx={{
+                    bgcolor: (theme) => theme.palette.surfaceContainerHigh?.main || "#F6FAF0",
+                    color: (theme) => theme.palette.onSurface?.main || "#1B1C19",
+                    fontSize: { xs: "0.625rem", sm: "0.6875rem", md: "0.75rem" },
+                    height: { xs: 20, sm: 22, md: 24 },
+                    px: { xs: 1, sm: 1.25 },
+                    borderRadius: 1.5,
+                  }}
+                />
+              ))}
+              {additionalCategoriesCount > 0 && (
+                <Chip
+                  label={`+${additionalCategoriesCount}`}
+                  size="small"
+                  sx={{
+                    bgcolor: (theme) => theme.palette.surfaceContainerHigh?.main || "#F6FAF0",
+                    color: (theme) => theme.palette.onSurfaceVariant?.main || "#444A41",
+                    fontSize: { xs: "0.625rem", sm: "0.6875rem", md: "0.75rem" },
+                    height: { xs: 20, sm: 22, md: 24 },
+                    px: { xs: 1, sm: 1.25 },
+                    borderRadius: 1.5,
+                  }}
+                />
+              )}
+            </Box>
+          )}
+
+          {/* Google Maps Link */}
+          {data.google_maps_url && (
+            <Box
+              component={Link}
+              href={data.google_maps_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 0.75,
+                color: (theme) => theme.palette.onSurfaceVariant?.main || "#444A41",
+                textDecoration: "none",
+                "&:hover": { color: (theme) => theme.palette.primary.main },
+                transition: "color 0.2s",
+                mt: 0.5,
+              }}
+            >
+              <OpenInNewRounded sx={{ fontSize: { xs: 16, sm: 18, md: 20 } }} />
+              <Typography variant="bodyMedium" sx={{ fontSize: { xs: "0.875rem", sm: "1rem", md: "1.125rem" } }}>View on Google Maps</Typography>
+            </Box>
+          )}
+        </Stack>
+
+        {/* Thumbnail Rail */}
+        {allPhotos.length > 1 && (
+          <Box
+            ref={thumbnailRef}
+            sx={{
+              display: "flex",
+              gap: 1,
+              overflowX: "auto",
+              mb: 2,
+              flexShrink: 0,
+              "&::-webkit-scrollbar": { display: "none" },
+              scrollbarWidth: "none",
+            }}
+            role="tablist"
+            aria-label="Photo thumbnails"
+          >
+            {allPhotos.map((photo, index) => {
+              const isActive = index === currentPhotoIndex;
+              const thumbnailUrl = buildPhotoUrl(photo.ref, 240);
+
+              return (
+                <Box
+                  key={index}
+                  component="button"
+                  onClick={() => handleThumbnailClick(index)}
+                  sx={{
+                    position: "relative",
+                    flexShrink: 0,
+                    width: { xs: 56, sm: 64, md: 72 },
+                    height: { xs: 56, sm: 64, md: 72 },
+                    borderRadius: 1.5,
+                    overflow: "hidden",
+                    border: 2,
+                    borderColor: isActive 
+                      ? (theme) => theme.palette.primary.main 
+                      : (theme) => theme.palette.outlineVariant?.main || "#DDE4D8",
+                    bgcolor: isActive 
+                      ? (theme) => theme.palette.primaryContainer?.main || "#CFE9CF"
+                      : "transparent",
+                    cursor: "pointer",
+                    "&:hover": { 
+                      borderColor: (theme) => theme.palette.primary.main,
+                    },
+                    "&:focus": { 
+                      outline: "2px solid", 
+                      outlineColor: (theme) => theme.palette.primary.main, 
+                      outlineOffset: 2 
+                    },
+                    transition: "all 0.2s",
+                  }}
+                  aria-label={`View photo ${index + 1}`}
+                  aria-selected={isActive}
+                  role="tab"
                 >
-                  {isPreparing ? (
-                    <span className="flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Preparing your analysis...
-                    </span>
+                  {!imageErrors.has(index) ? (
+                    <Image
+                      src={thumbnailUrl}
+                      alt={`${data.name} thumbnail ${index + 1}`}
+                      fill
+                      style={{ objectFit: "cover" }}
+                      sizes="72px"
+                      onError={() => setImageErrors((prev) => new Set(prev).add(index))}
+                      unoptimized
+                    />
                   ) : (
-                    "Yes — Continue to Analysis"
+                    <Box
+                      sx={{
+                        position: "absolute",
+                        inset: 0,
+                        bgcolor: (theme) => theme.palette.surfaceContainerLow?.main || "#E9EEE4",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <LocationOnRounded sx={{ color: (theme) => theme.palette.onSurfaceVariant?.main || "#444A41", fontSize: { xs: 20, sm: 24, md: 28 } }} />
+                    </Box>
                   )}
-                </Button>
+                </Box>
+              );
+            })}
+          </Box>
+        )}
 
-                <button
-                  onClick={handleReject}
-                  className="w-full text-sm text-gray-600 hover:text-gray-900 transition-colors py-2"
-                >
-                  Pick a different business
-                </button>
-              </div>
-            </div>
-          </div>
-      </div>
-      </div>
-    </React.Fragment>
+        {/* Actions Section */}
+        <Box
+          sx={{
+            display: "flex",
+            gap: { xs: 1, sm: 1.5 },
+            pt: 2,
+            mt: "auto",
+            justifyContent: "flex-end",
+            flexShrink: 0,
+            borderTop: "1px solid",
+            borderColor: (theme) => theme.palette.outlineVariant?.main || "#DDE4D8",
+          }}
+        >
+          <Button
+            onClick={handleReject}
+            variant="outlined"
+            size="medium"
+            sx={{
+              borderRadius: 999,
+              textTransform: "none",
+              fontWeight: 500,
+              fontSize: { xs: "0.875rem", sm: "1rem", md: "1.125rem" },
+              px: { xs: 2, sm: 2.5, md: 3 },
+              py: { xs: 0.75, sm: 1, md: 1.25 },
+              color: (theme) => theme.palette.onSurface?.main || "#1B1C19",
+              borderColor: (theme) => theme.palette.outlineVariant?.main || "#DDE4D8",
+              backgroundColor: (theme) => theme.palette.surfaceContainer?.main || "#FFFFFF",
+              "&:hover": {
+                backgroundColor: (theme) => theme.palette.surfaceContainerHigh?.main || "#F6FAF0",
+                borderColor: (theme) => theme.palette.outline?.main || "#C7CEC3",
+              },
+            }}
+          >
+            {rejectButtonText}
+          </Button>
+          <Button
+            onClick={handleConfirm}
+            disabled={isPreparing}
+            variant="contained"
+            size="medium"
+            sx={{
+              borderRadius: 999,
+              textTransform: "none",
+              fontWeight: 500,
+              fontSize: { xs: "0.875rem", sm: "1rem", md: "1.125rem" },
+              px: { xs: 2, sm: 2.5, md: 3 },
+              py: { xs: 0.75, sm: 1, md: 1.25 },
+              backgroundColor: (theme) => theme.palette.primary.main,
+              color: (theme) => theme.palette.onPrimary?.main || "#FFFFFF",
+              "&:hover": {
+                backgroundColor: (theme) => theme.palette.primary.dark || "#005005",
+              },
+              "&.Mui-disabled": {
+                backgroundColor: (theme) => theme.palette.surfaceContainerHigh?.main || "#F6FAF0",
+                color: (theme) => theme.palette.onSurfaceVariant?.main || "#444A41",
+              },
+            }}
+          >
+            {isPreparing ? (
+              <Stack direction="row" spacing={0.75} alignItems="center">
+                <CircularProgress size={16} color="inherit" />
+                <span style={{ fontSize: "inherit" }}>Preparing...</span>
+              </Stack>
+            ) : (
+              confirmButtonText
+            )}
+          </Button>
+        </Box>
+      </CardContent>
+    </Card>
   );
 }
-

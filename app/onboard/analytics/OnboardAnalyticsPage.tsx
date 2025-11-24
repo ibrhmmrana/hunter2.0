@@ -4,18 +4,36 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, useInView } from "framer-motion";
 import {
-  Search,
-  Star,
-  ExternalLink,
-  RefreshCw,
-  ArrowUpRight,
-  CheckCircle2,
-  XCircle,
-  AlertCircle,
-  ArrowRight,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
+  Box,
+  Container,
+  Typography,
+  AppBar,
+  Toolbar,
+  IconButton,
+  Button,
+  Chip,
+  Link as MuiLink,
+  Stack,
+  CircularProgress,
+  Card,
+  CardContent,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  useMediaQuery,
+  useTheme,
+} from "@mui/material";
+import CheckCircle from "@mui/icons-material/CheckCircle";
+import ChevronLeft from "@mui/icons-material/ChevronLeft";
+import ChevronRight from "@mui/icons-material/ChevronRight";
+import Star from "@mui/icons-material/Star";
+import SearchIcon from "@mui/icons-material/Search";
+import RefreshCwIcon from "@mui/icons-material/Refresh";
+import ArrowUpRightIcon from "@mui/icons-material/ArrowUpward";
+import CloseRounded from "@mui/icons-material/CloseRounded";
+import Error from "@mui/icons-material/Error";
+import Favorite from "@mui/icons-material/Favorite";
 import { formatReviewCount } from "@/lib/format";
 import Link from "next/link";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
@@ -132,6 +150,22 @@ interface OnboardAnalyticsPageProps {
   hasTikTokInsight?: boolean;
   hasFacebookProfile?: boolean;
   hasFacebookInsight?: boolean;
+  googleReviewSnapshot?: {
+    negative_reviews: number;
+    positive_reviews: number;
+    days_since_last_review: number | null;
+    total_reviews: number;
+    reviews_distribution: {
+      oneStar: number;
+      twoStar: number;
+      threeStar: number;
+      fourStar: number;
+      fiveStar: number;
+    } | null;
+    negative_summary: string | null;
+    positive_summary: string | null;
+    snapshot_ts: string;
+  } | null;
 }
 
 export function OnboardAnalyticsPage({ 
@@ -149,8 +183,26 @@ export function OnboardAnalyticsPage({
   hasTikTokInsight = false,
   hasFacebookProfile = false,
   hasFacebookInsight = false,
+  googleReviewSnapshot = null,
 }: OnboardAnalyticsPageProps) {
   const router = useRouter();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+
+  // Debug log for Google review snapshot
+  useEffect(() => {
+    console.log('[OnboardAnalyticsPage] Google review snapshot', {
+      hasSnapshot: !!googleReviewSnapshot,
+      snapshot: googleReviewSnapshot,
+      hasNegativeSummary: !!googleReviewSnapshot?.negative_summary,
+      hasPositiveSummary: !!googleReviewSnapshot?.positive_summary,
+      negativeSummary: googleReviewSnapshot?.negative_summary?.substring(0, 50),
+      positiveSummary: googleReviewSnapshot?.positive_summary?.substring(0, 50),
+      totalReviews: googleReviewSnapshot?.total_reviews,
+      negativeReviews: googleReviewSnapshot?.negative_reviews,
+      positiveReviews: googleReviewSnapshot?.positive_reviews,
+    });
+  }, [googleReviewSnapshot]);
   
   // Carousel state
   const [activeSlideIndex, setActiveSlideIndex] = useState(0);
@@ -160,6 +212,8 @@ export function OnboardAnalyticsPage({
   const punchlinesRef = useRef<Punchline[]>(initialPunchlines);
   const [skipLoading, setSkipLoading] = useState(false);
   const [paywallLoading, setPaywallLoading] = useState(false);
+  const [googleDialogOpen, setGoogleDialogOpen] = useState(false);
+  const [regeneratingSummaries, setRegeneratingSummaries] = useState(false);
 
   // Keep ref in sync with state
   useEffect(() => {
@@ -684,91 +738,160 @@ export function OnboardAnalyticsPage({
   const facebookDelay = baseDelay + (shouldShowInstagramLoading ? 1 : 0) + (shouldShowTikTokLoading ? 1 : 0);
 
   return (
-    <div className="h-screen flex flex-col bg-white overflow-hidden">
+    <Box sx={{ height: "100vh", display: "flex", flexDirection: "column", bgcolor: "background.default", overflow: "hidden" }}>
       {/* Header with business name and refresh */}
-      <div className="flex-shrink-0 bg-white border-b border-slate-200 z-30">
-        <div className="max-w-7xl mx-auto px-6 md:px-10">
-          <div className="flex items-center justify-between py-4">
-            <div>
-              <h1 className="text-xl md:text-2xl font-semibold text-slate-950">
+      <AppBar
+        position="static"
+        elevation={0}
+        sx={{
+          bgcolor: (theme) => theme.palette.surfaceContainer?.main || "#FFFFFF",
+          borderBottom: "1px solid",
+          borderColor: "outline.variant",
+          zIndex: 30,
+        }}
+      >
+        <Toolbar sx={{ justifyContent: "space-between", py: 2 }}>
+          <Box>
+            <Typography variant="h5" sx={{ fontWeight: 500 }}>
                 {business.name}
-              </h1>
+            </Typography>
               {(primaryCategory || business.city) && (
-                <p className="text-xs md:text-sm text-slate-600 mt-1">
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
                   {primaryCategory && <span>{primaryCategory}</span>}
                   {primaryCategory && business.city && <span> · </span>}
                   {business.city && <span>{business.city}</span>}
-                </p>
+              </Typography>
               )}
-            </div>
-            <div className="flex items-center gap-3">
+          </Box>
+          <Stack direction="row" spacing={2} alignItems="center">
               {business.google_maps_url && (
-                <a
+              <MuiLink
                   href={business.google_maps_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-sm text-slate-700 hover:text-slate-900 transition-colors"
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 0.5,
+                  fontSize: "14px",
+                  color: "text.secondary",
+                  textDecoration: "none",
+                  "&:hover": { color: "text.primary" },
+                }}
                 >
                   View on Maps
-                  <ArrowUpRight className="h-4 w-4" />
-                </a>
+                <ArrowUpRightIcon size={16} />
+              </MuiLink>
               )}
-              <button
+            <Button
                 onClick={handleRefresh}
                 disabled={refreshing}
-                className="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900 transition-colors disabled:opacity-50"
-              >
-                <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+              startIcon={refreshing ? <CircularProgress size={16} /> : <RefreshCwIcon size={16} />}
+              sx={{
+                fontSize: "14px",
+                color: "text.secondary",
+                "&:hover": { color: "text.primary" },
+              }}
+            >
                 Refresh data
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+            </Button>
+          </Stack>
+        </Toolbar>
+      </AppBar>
 
       {/* Carousel Container with internal scrolling */}
-      <div className="flex-1 relative overflow-hidden">
-        <div 
-          className="flex h-full transition-transform duration-300 ease-in-out"
-          style={{ transform: `translateX(-${activeSlideIndex * 100}%)` }}
+      <Box sx={{ flex: 1, position: "relative", overflow: "hidden" }}>
+        <Box
+          sx={{
+            display: "flex",
+            height: "100%",
+            transition: "transform 0.3s ease-in-out",
+            transform: `translateX(-${activeSlideIndex * 100}%)`,
+          }}
         >
           {/* Slide 1: How people should be finding you */}
-          <div className="min-w-full flex-shrink-0 h-full overflow-y-auto">
-            <div className="max-w-4xl mx-auto px-6 md:px-10 py-10 md:py-14">
-              <h2 className="text-2xl md:text-3xl font-semibold text-slate-900 mb-4">
+          <Box sx={{ minWidth: "100%", flexShrink: 0, height: "100%", overflowY: "auto" }}>
+            <Container maxWidth="lg" sx={{ py: { xs: 3, md: 4 }, px: { xs: 3, md: 5 } }}>
+              <Typography 
+                variant="h4" 
+                sx={{ 
+                  fontSize: { xs: "1.5rem", md: "1.875rem" },
+                  fontWeight: 600,
+                  mb: 2,
+                  color: "text.primary"
+                }}
+              >
                 How people should be finding you
-              </h2>
-              <p className="text-sm md:text-[15px] text-slate-600 mb-6">
+              </Typography>
+              <Typography 
+                variant="body2" 
+                color="text.secondary" 
+                sx={{ 
+                  fontSize: "0.875rem",
+                  mt: 1,
+                  mb: 3
+                }}
+              >
                 These are the searches your ideal customers are using to find businesses like yours.
-              </p>
-              {discoveryQueries.length > 0 && (
-                <div className="flex flex-wrap gap-2.5">
+              </Typography>
+              {discoveryQueries.length > 0 ? (
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                   {discoveryQueries.slice(0, 5).map((phrase: string, index: number) => {
                     const googleSearchUrl = `https://www.google.com/search?q=${encodeURIComponent(phrase)}`;
                     return (
-                      <a
+                      <Chip
                         key={index}
+                        component="a"
                         href={googleSearchUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-slate-200 bg-white/90 text-sm md:text-base text-slate-700 font-medium shadow-sm hover:bg-slate-50 hover:border-slate-300 transition-colors cursor-pointer"
-                      >
-                        <Search className="h-4 w-4 text-slate-500" />
-                        {phrase}
-                      </a>
+                        icon={<SearchIcon size={16} />}
+                        label={phrase}
+                        clickable
+                        sx={{
+                          bgcolor: (theme) => theme.palette.surfaceContainer?.main || "#FFFFFF",
+                          border: "1px solid",
+                          borderColor: "outline.variant",
+                          "&:hover": {
+                            bgcolor: (theme) => theme.palette.surfaceContainerLow?.main || "#E9EEE4",
+                            borderColor: "outline.main",
+                          },
+                        }}
+                      />
                     );
                   })}
-                </div>
+                </Stack>
+              ) : (
+                <Box sx={{ 
+                  borderRadius: 2, 
+                  border: "1px solid", 
+                  borderColor: "outline.variant", 
+                  bgcolor: "surface.variant", 
+                  p: 3,
+                  textAlign: "center"
+                }}>
+                  <Typography variant="body2" color="text.secondary">
+                    We're analyzing search patterns for your business. Discovery queries will appear here once analysis is complete.
+                  </Typography>
+                </Box>
               )}
-            </div>
-          </div>
+            </Container>
+          </Box>
 
           {/* Slide 2: You're ranked #X for your top search */}
-          <div className="min-w-full flex-shrink-0 h-full overflow-y-auto">
-            <div className="max-w-4xl mx-auto px-6 md:px-10 py-10 md:py-14">
-              <div className="flex items-baseline justify-between gap-4 mb-4">
-                <div>
-                  <h2 className="text-2xl md:text-3xl font-semibold text-slate-900 mb-2">
+          <Box sx={{ minWidth: "100%", flexShrink: 0, height: "100%", overflowY: "auto" }}>
+            <Container maxWidth="lg" sx={{ py: { xs: 3, md: 4 }, px: { xs: 3, md: 5 } }}>
+              <Box sx={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 2, mb: 2 }}>
+                <Box>
+                  <Typography 
+                    variant="h4" 
+                    sx={{ 
+                      fontSize: { xs: "1.5rem", md: "1.875rem" },
+                      fontWeight: 600,
+                      mb: 2,
+                      color: "text.primary"
+                    }}
+                  >
                     {typeof topSearchHeading === 'string' ? (() => {
                       // Parse rank number from heading string (e.g., "You're ranked #15 for your top search" or "#15+")
                       const rankMatch = topSearchHeading.match(/#(\d+)(\+?)/);
@@ -809,29 +932,45 @@ export function OnboardAnalyticsPage({
                     ) : (
                       "You're not in the top results for your top search yet"
                     )}
-                  </h2>
+                  </Typography>
                   {primaryQuery && (
-                    <p className="text-sm md:text-[15px] text-slate-600">
+                    <Typography 
+                      variant="body2" 
+                      color="text.secondary" 
+                      sx={{ 
+                        fontSize: "0.875rem",
+                        mt: 1
+                      }}
+                    >
                       {isChasers 
                         ? "These businesses are right behind you. Stay ahead with consistent reviews and updates."
                         : "We've looked at live Google results for this search and highlighted businesses appearing above you."
                       }
-                    </p>
+                    </Typography>
                   )}
-                </div>
+                </Box>
                 {primaryQuery && (
-                  <a
+                  <Chip
+                    component="a"
                     href={`https://www.google.com/search?q=${encodeURIComponent(primaryQuery)}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="px-4 py-2 rounded-full bg-slate-50 text-sm text-slate-700 border border-slate-200 flex-shrink-0 hover:bg-slate-100 hover:border-slate-300 transition-colors cursor-pointer"
-                  >
-                    Top search: <span className="font-medium">"{primaryQuery}"</span>
-                  </a>
+                    label={`Top search: "${primaryQuery}"`}
+                    clickable
+                    sx={{
+                      bgcolor: (theme) => theme.palette.surfaceContainerHigh?.main || "#F6FAF0",
+                      border: "1px solid",
+                      borderColor: "outline.variant",
+                      "&:hover": {
+                        bgcolor: (theme) => theme.palette.surfaceContainerLow?.main || "#E9EEE4",
+                        borderColor: "outline.main",
+                      },
+                    }}
+                  />
                 )}
-              </div>
-              {leaders.length > 0 && (
-                <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              </Box>
+              {leaders.length > 0 ? (
+                <Box sx={{ mt: 3, display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", lg: "repeat(3, 1fr)" }, gap: 2.5 }}>
                   {leaders.map(leader => {
                     // Get all photos, fallback to photo_reference if photos array is empty
                     const allPhotos = leader.photos && leader.photos.length > 0 
@@ -863,82 +1002,417 @@ export function OnboardAnalyticsPage({
                       />
                     );
                   })}
-                </div>
+                </Box>
+              ) : primaryQuery ? (
+                <Box sx={{ 
+                  mt: 3,
+                  borderRadius: 2, 
+                  border: "1px solid", 
+                  borderColor: "outline.variant", 
+                  bgcolor: "surface.variant", 
+                  p: 3,
+                  textAlign: "center"
+                }}>
+                  <Typography variant="body2" color="text.secondary">
+                    You're not clearly being outranked for "{primaryQuery}" right now on Google. Let's use creators to protect that position.
+                  </Typography>
+                </Box>
+              ) : (
+                <Box sx={{ 
+                  mt: 3,
+                  borderRadius: 2, 
+                  border: "1px solid", 
+                  borderColor: "outline.variant", 
+                  bgcolor: "surface.variant", 
+                  p: 3,
+                  textAlign: "center"
+                }}>
+                  <Typography variant="body2" color="text.secondary">
+                    We're analyzing your search rankings. Top search competitors will appear here once analysis is complete.
+                  </Typography>
+                </Box>
               )}
-              {leaders.length === 0 && primaryQuery && (
-                <p className="mt-4 text-sm text-emerald-600">
-                  You're not clearly being outranked for "{primaryQuery}" right now on Google. Let's use creators to protect that position.
-                </p>
-              )}
-            </div>
-          </div>
+            </Container>
+          </Box>
 
           {/* Slide 3: Your competitors are ahead */}
           {hasInitialCompetitors && syncedCompetitors.length > 0 ? (
-            <div className="min-w-full flex-shrink-0 h-full overflow-y-auto">
-              <div className="max-w-4xl mx-auto px-6 md:px-10 py-10 md:py-14">
-                <h2 className="text-2xl md:text-3xl font-semibold text-slate-950 mb-2">
+            <Box sx={{ minWidth: "100%", flexShrink: 0, height: "100%", overflowY: "auto" }}>
+              <Container maxWidth="lg" sx={{ py: { xs: 3, md: 4 }, px: { xs: 3, md: 5 } }}>
+                <Typography 
+                  variant="h4" 
+                  sx={{ 
+                    fontSize: { xs: "1.5rem", md: "1.875rem" },
+                    fontWeight: 600,
+                    mb: 2,
+                    color: "text.primary"
+                  }}
+                >
                   Your competitors are ahead
-                </h2>
-                <p className="text-sm md:text-[15px] text-slate-600 mb-6 leading-relaxed">
+                </Typography>
+                <Typography 
+                  variant="body2" 
+                  color="text.secondary" 
+                  sx={{ 
+                    fontSize: "0.875rem",
+                    mt: 1,
+                    mb: 3,
+                    lineHeight: 1.7
+                  }}
+                >
                   For real searches like these, nearby customers are choosing other spots first. Here's
                   who is winning your 'near me' moments.
-                </p>
+                </Typography>
 
                 {/* Competitor Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", lg: "repeat(3, 1fr)" }, gap: 2, mb: 3 }}>
                   {competitors.map((competitor, index) => (
                     <CompetitorTile key={competitor.competitor_place_id} competitor={competitor} index={index} kpis={kpis} />
                   ))}
-                </div>
+                </Box>
 
                 {/* CTA */}
-                <div className="flex justify-end mt-6">
-                  <button
+                <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 3 }}>
+                  <Button
                     onClick={() => {
                       console.log("Generate 30-day catch-up plan");
                       // TODO: Implement
                     }}
-                    className="px-4 py-2 bg-slate-950 text-white text-sm font-medium rounded-lg hover:bg-slate-800 transition-all active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500"
+                    variant="contained"
+                    sx={{ borderRadius: 2 }}
                   >
                     Generate a 30-day catch-up plan
-                  </button>
-                </div>
-              </div>
-            </div>
+                  </Button>
+                </Box>
+              </Container>
+            </Box>
           ) : (
-            <div className="min-w-full flex-shrink-0 h-full overflow-y-auto">
-              <div className="max-w-4xl mx-auto px-6 md:px-10 py-10 md:py-14">
-                <h2 className="text-2xl md:text-3xl font-semibold text-slate-950 mb-2">
+            <Box sx={{ minWidth: "100%", flexShrink: 0, height: "100%", overflowY: "auto" }}>
+              <Container maxWidth="lg" sx={{ py: { xs: 3, md: 4 }, px: { xs: 3, md: 5 } }}>
+                <Typography 
+                  variant="h4" 
+                  sx={{ 
+                    fontSize: { xs: "1.5rem", md: "1.875rem" },
+                    fontWeight: 600,
+                    mb: 2,
+                    color: "text.primary"
+                  }}
+                >
                   Your competitors are ahead
-                </h2>
-                <p className="text-sm text-slate-600">
-                  We're analyzing your competitors. This will appear once we have data.
-                </p>
-              </div>
-            </div>
+                </Typography>
+                <Typography 
+                  variant="body2" 
+                  color="text.secondary" 
+                  sx={{ 
+                    fontSize: "0.875rem",
+                    mt: 1,
+                    mb: 3
+                  }}
+                >
+                  For real searches like these, nearby customers are choosing other spots first. Here's who is winning your 'near me' moments.
+                </Typography>
+                <Box sx={{ 
+                  borderRadius: 2, 
+                  border: "1px solid", 
+                  borderColor: "outline.variant", 
+                  bgcolor: "surface.variant", 
+                  p: 3,
+                  textAlign: "center"
+                }}>
+                  <Typography variant="body2" color="text.secondary">
+                    We're analyzing your competitors. Competitor cards will appear here once analysis is complete.
+                  </Typography>
+                </Box>
+              </Container>
+            </Box>
           )}
 
           {/* Slide 4: Why you're not winning that search (yet) */}
-          <div className="min-w-full flex-shrink-0 h-full overflow-y-auto">
-            <div className="max-w-4xl mx-auto px-6 md:px-10 py-10 md:py-14">
-
-              <h2 className="text-2xl md:text-3xl font-semibold text-slate-950 mb-2">
+          <Box sx={{ minWidth: "100%", flexShrink: 0, height: "100%", overflowY: "auto" }}>
+            <Container maxWidth="lg" sx={{ py: { xs: 3, md: 4 }, px: { xs: 3, md: 5 } }}>
+              <Typography 
+                variant="h4" 
+                sx={{ 
+                  fontSize: { xs: "1.5rem", md: "1.875rem" },
+                  fontWeight: 600,
+                  mb: 2,
+                  color: "text.primary"
+                }}
+              >
                 Why you're not winning that search (yet)
-              </h2>
-              <p className="text-sm md:text-[15px] text-slate-600 mb-6">
+              </Typography>
+              <Typography 
+                variant="body2" 
+                color="text.secondary" 
+                sx={{ 
+                  fontSize: "0.875rem",
+                  mt: 1,
+                  mb: 3
+                }}
+              >
                 Here's how you stack up against spots already winning those 'near me' moments.
-              </p>
+              </Typography>
+
+              {/* Google Review Analysis */}
+              {googleReviewSnapshot ? (
+                <Box sx={{ mb: 3 }}>
+                  <Card
+                    variant="filled"
+                    sx={{
+                      borderRadius: 2,
+                      backgroundColor: (theme) => theme.palette.surfaceContainer?.main || "#FFFFFF",
+                      boxShadow: "0px 1px 2px rgba(0,0,0,0.08)",
+                      cursor: "pointer",
+                      transition: "all 0.2s",
+                      "&:hover": {
+                        boxShadow: "0px 4px 8px rgba(0,0,0,0.12)",
+                        transform: "translateY(-2px)",
+                      },
+                    }}
+                    onClick={() => setGoogleDialogOpen(true)}
+                  >
+                    <CardContent sx={{ p: 3 }}>
+                      <Stack spacing={2.5}>
+                        {googleReviewSnapshot.negative_summary ? (
+                          <Box
+                            sx={{
+                              bgcolor: (theme) => theme.palette.error?.light || "#FFEBEE",
+                              borderLeft: "4px solid",
+                              borderColor: (theme) => theme.palette.error?.main || "#C62828",
+                              borderRadius: "0 12px 12px 0",
+                              p: 3,
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 2,
+                              boxShadow: "0px 1px 3px rgba(0,0,0,0.08)",
+                            }}
+                          >
+                            <Error sx={{ color: (theme) => theme.palette.error?.main || "#C62828", fontSize: 24, flexShrink: 0, mt: 0.5 }} />
+                            <Typography
+                              variant="bodyLarge"
+                              sx={{
+                                color: (theme) => theme.palette.error?.dark || "#B71C1C",
+                                fontWeight: 500,
+                                lineHeight: 1.7,
+                                fontSize: "0.9375rem",
+                              }}
+                            >
+                              {googleReviewSnapshot.negative_summary}
+                            </Typography>
+                          </Box>
+                        ) : (
+                          <Box
+                            sx={{
+                              bgcolor: (theme) => theme.palette.surfaceContainerHigh?.main || "#F6FAF0",
+                              borderRadius: 2,
+                              p: 2.5,
+                              textAlign: "center",
+                            }}
+                          >
+                            <Typography variant="bodySmall" sx={{ color: "text.secondary", fontSize: "0.75rem", mb: 1.5 }}>
+                              Negative review analysis pending
+                            </Typography>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                setRegeneratingSummaries(true);
+                                try {
+                                  const response = await fetch("/api/google/reviews/regenerate-summaries", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    credentials: "include",
+                                    body: JSON.stringify({ businessId: placeId }),
+                                  });
+                                  const data = await response.json();
+                                  if (data.ok) {
+                                    window.location.reload();
+                                  }
+                                } catch (error) {
+                                  console.error("Error regenerating summaries:", error);
+                                } finally {
+                                  setRegeneratingSummaries(false);
+                                }
+                              }}
+                              disabled={regeneratingSummaries}
+                              startIcon={regeneratingSummaries ? <CircularProgress size={14} /> : <RefreshCwIcon />}
+                              sx={{ fontSize: "0.75rem", borderRadius: 999 }}
+                            >
+                              Generate
+                            </Button>
+                          </Box>
+                        )}
+                        {googleReviewSnapshot.positive_summary ? (
+                          <Box
+                            sx={{
+                              bgcolor: (theme) => theme.palette.success?.light || "#E8F5E9",
+                              borderLeft: "4px solid",
+                              borderColor: (theme) => theme.palette.success?.main || "#4CAF50",
+                              borderRadius: "0 12px 12px 0",
+                              p: 3,
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 2,
+                              boxShadow: "0px 1px 3px rgba(0,0,0,0.08)",
+                            }}
+                          >
+                            <Favorite sx={{ color: (theme) => theme.palette.success?.main || "#4CAF50", fontSize: 24, flexShrink: 0, mt: 0.5 }} />
+                            <Typography
+                              variant="bodyLarge"
+                              sx={{
+                                color: (theme) => theme.palette.success?.dark || "#2E7D32",
+                                fontWeight: 500,
+                                lineHeight: 1.7,
+                                fontSize: "0.9375rem",
+                              }}
+                            >
+                              {googleReviewSnapshot.positive_summary}
+                            </Typography>
+                          </Box>
+                        ) : (
+                          <Box
+                            sx={{
+                              bgcolor: (theme) => theme.palette.surfaceContainerHigh?.main || "#F6FAF0",
+                              borderRadius: 2,
+                              p: 2.5,
+                              textAlign: "center",
+                            }}
+                          >
+                            <Typography variant="bodySmall" sx={{ color: "text.secondary", fontSize: "0.75rem", mb: 1.5 }}>
+                              Positive review analysis pending
+                            </Typography>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                setRegeneratingSummaries(true);
+                                try {
+                                  const response = await fetch("/api/google/reviews/regenerate-summaries", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    credentials: "include",
+                                    body: JSON.stringify({ businessId: placeId }),
+                                  });
+                                  const data = await response.json();
+                                  if (data.ok) {
+                                    window.location.reload();
+                                  }
+                                } catch (error) {
+                                  console.error("Error regenerating summaries:", error);
+                                } finally {
+                                  setRegeneratingSummaries(false);
+                                }
+                              }}
+                              disabled={regeneratingSummaries}
+                              startIcon={regeneratingSummaries ? <CircularProgress size={14} /> : <RefreshCwIcon />}
+                              sx={{ fontSize: "0.75rem", borderRadius: 999 }}
+                            >
+                              Generate
+                            </Button>
+                          </Box>
+                        )}
+                        {googleReviewSnapshot.days_since_last_review !== null && (
+                          <Box sx={{ pt: 2, borderTop: "1px solid", borderColor: "outline.variant" }}>
+                            <Stack direction="row" justifyContent="space-between" alignItems="center">
+                              <Typography variant="bodyMedium" sx={{ color: "text.secondary", fontSize: "0.875rem" }}>
+                                Days since last review:
+                              </Typography>
+                              <Typography variant="bodyMedium" sx={{ fontWeight: 600, fontSize: "0.875rem", color: "text.primary" }}>
+                                {googleReviewSnapshot.days_since_last_review}
+                              </Typography>
+                            </Stack>
+                          </Box>
+                        )}
+                        {(googleReviewSnapshot.negative_summary || googleReviewSnapshot.positive_summary) && (
+                          <Box 
+                            sx={{ 
+                              display: "flex", 
+                              alignItems: "center", 
+                              justifyContent: "center", 
+                              gap: 0.75, 
+                              pt: 1.5,
+                              mt: 0.5,
+                            }}
+                          >
+                            <Typography 
+                              variant="bodySmall" 
+                              sx={{ 
+                                color: "primary.main", 
+                                fontSize: "0.8125rem",
+                                fontWeight: 500,
+                              }}
+                            >
+                              Click for detailed analysis
+                            </Typography>
+                            <ArrowUpRightIcon sx={{ fontSize: 16, color: "primary.main" }} />
+                          </Box>
+                        )}
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                </Box>
+              ) : (
+                <Box sx={{ mb: 3 }}>
+                  <Card
+                    variant="filled"
+                    sx={{
+                      borderRadius: 2,
+                      backgroundColor: (theme) => theme.palette.surfaceContainer?.main || "#FFFFFF",
+                      boxShadow: "0px 1px 2px rgba(0,0,0,0.08)",
+                    }}
+                  >
+                    <CardContent sx={{ p: 2, textAlign: "center" }}>
+                      <Typography variant="bodyMedium" sx={{ color: "text.secondary", mb: 2 }}>
+                        Google review analysis is being prepared. This will appear once your reviews have been analyzed.
+                      </Typography>
+                      <Button
+                        variant="outlined"
+                        onClick={async () => {
+                          setRegeneratingSummaries(true);
+                          try {
+                            const response = await fetch("/api/google/reviews/analyze", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              credentials: "include",
+                              body: JSON.stringify({ businessId: placeId, placeId: placeId }),
+                            });
+                            const data = await response.json();
+                            if (data.ok) {
+                              // Wait a bit then reload to check for new snapshot
+                              setTimeout(() => {
+                                window.location.reload();
+                              }, 5000);
+                            } else {
+                              console.error("Failed to start analysis:", data.error);
+                            }
+                          } catch (error) {
+                            console.error("Error starting analysis:", error);
+                          } finally {
+                            setRegeneratingSummaries(false);
+                          }
+                        }}
+                        disabled={regeneratingSummaries}
+                        startIcon={regeneratingSummaries ? <CircularProgress size={16} /> : <RefreshCwIcon />}
+                        sx={{ borderRadius: 999, textTransform: "none" }}
+                      >
+                        {regeneratingSummaries ? "Starting analysis..." : "Start Google Review Analysis"}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </Box>
+              )}
 
               {/* Simplified Punchlines */}
               {punchlines.length === 0 && !shouldShowInstagramLoading && !shouldShowTikTokLoading && !shouldShowFacebookLoading ? (
-                <div className="rounded-xl border border-slate-200 bg-slate-50/50 px-5 py-4">
-                  <p className="text-sm text-slate-600">
+                <Box sx={{ borderRadius: 3, border: "1px solid", borderColor: "outline.variant", bgcolor: "surface.variant", p: 2.5 }}>
+                  <Typography variant="body2" color="text.secondary">
                     You're in a solid position. We'll highlight gaps here when we find them.
-                  </p>
-                </div>
+                  </Typography>
+                </Box>
               ) : (
-                <div className="space-y-3">
+                <Stack spacing={1.5}>
                   {punchlines.map((line, index) => (
                     <motion.div
                       key={`${line.source}-${index}`}
@@ -976,256 +1450,570 @@ export function OnboardAnalyticsPage({
                       <FacebookPunchlineLoading />
                     </motion.div>
                   )}
-                </div>
+                </Stack>
               )}
-            </div>
-          </div>
+            </Container>
+          </Box>
 
           {/* Slide 5: Real humans ready to fix that */}
-          <div className="min-w-full flex-shrink-0 h-full overflow-y-auto">
-            <div className="max-w-4xl mx-auto px-6 md:px-10 py-10 md:py-14">
-
+          <Box sx={{ minWidth: "100%", flexShrink: 0, height: "100%", overflowY: "auto" }}>
+            <Container maxWidth="lg" sx={{ py: { xs: 3, md: 4 }, px: { xs: 3, md: 5 } }}>
               <RealHumansSection
                 businessName={business.name}
                 category={primaryCategory}
                 city={business.city}
                 discoveryQueries={discoveryQueries}
               />
-            </div>
-          </div>
+            </Container>
+          </Box>
 
           {/* Slide 6: Soft Paywall */}
-          <div className="min-w-full flex-shrink-0 h-full overflow-hidden">
+          <Box sx={{ minWidth: "100%", flexShrink: 0, height: "100%", overflow: "hidden" }}>
             {/* Main content area - perfectly fit, scales proportionally */}
-            <div className="h-full flex flex-col justify-center items-center w-full" style={{ padding: 'clamp(0.5rem, 1.5vh, 1rem) clamp(1rem, 2.5vw, 1.5rem)' }}>
-              <div className="w-full max-w-4xl mx-auto flex flex-col items-center" style={{ gap: 'clamp(0.5rem, 1.5vh, 1rem)' }}>
+            <Box sx={{ height: "100%", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", width: "100%", p: { xs: 1, sm: 2 } }}>
+              <Container maxWidth="lg" sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: { xs: 1, sm: 1.5 } }}>
                 {/* Breadcrumb / Context */}
-                <div className="w-full text-center flex-shrink-0">
-                  <p className="text-slate-500 font-medium uppercase tracking-wide" style={{ fontSize: 'clamp(0.625rem, 1vh, 0.75rem)' }}>
+                <Box sx={{ width: "100%", textAlign: "center", flexShrink: 0 }}>
+                  <Typography
+                    variant="overline"
+                    sx={{
+                      fontSize: { xs: "0.625rem", sm: "0.75rem" },
+                      color: "text.secondary",
+                      fontWeight: 500,
+                    }}
+                  >
                     Step 6 of 6
-                  </p>
-                </div>
+                  </Typography>
+                </Box>
 
                 {/* Main Heading */}
-                <div className="text-center w-full max-w-3xl mx-auto flex-shrink-0 px-2">
-                  <h2 className="font-bold text-slate-900 leading-tight" style={{ 
-                    fontSize: 'clamp(1rem, 3vw, 2rem)',
-                    marginBottom: 'clamp(0.375rem, 1.2vh, 0.75rem)'
-                  }}>
+                <Box sx={{ textAlign: "center", width: "100%", maxWidth: "48rem", mx: "auto", flexShrink: 0, px: 1 }}>
+                  <Typography
+                    variant="h3"
+                    sx={{
+                      fontWeight: 700,
+                      lineHeight: 1.2,
+                      fontSize: { xs: "1rem", sm: "1.5rem", md: "2rem" },
+                      mb: { xs: 0.5, sm: 1 },
+                    }}
+                  >
                     Premium business growth at the<br />
-                    <span className="text-emerald-600 relative">
+                    <Box component="span" sx={{ color: "primary.main", position: "relative" }}>
                       cost of lunch
-                      <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-600/30 -rotate-1"></span>
-                    </span>{" "}
+                      <Box
+                        component="span"
+                        sx={{
+                          position: "absolute",
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                          height: "2px",
+                          bgcolor: "primary.main",
+                          opacity: 0.3,
+                          transform: "rotate(-1deg)",
+                        }}
+                      />
+                    </Box>{" "}
                     with a friend
-                  </h2>
-                  <p className="text-slate-600 max-w-xl mx-auto leading-snug px-2" style={{ 
-                    fontSize: 'clamp(0.7rem, 1.3vw, 0.9rem)'
-                  }}>
-                    Get the full Hunter playbook, done-for-you insights, and always-on monitoring for just <strong className="text-slate-900">R299/m</strong>. No confusing tiers, no hidden fees.
-                  </p>
-                </div>
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{
+                      maxWidth: "36rem",
+                      mx: "auto",
+                      lineHeight: 1.5,
+                      px: 1,
+                      fontSize: { xs: "0.7rem", sm: "0.9rem" },
+                    }}
+                  >
+                    Get the full Hunter playbook, done-for-you insights, and always-on monitoring for just <Box component="strong" sx={{ color: "text.primary" }}>R299/m</Box>. No confusing tiers, no hidden fees.
+                  </Typography>
+                </Box>
 
                 {/* Premium Card */}
-                <div className="w-full mx-auto flex-shrink-0" style={{ maxWidth: 'clamp(16rem, 25vw, 24rem)' }}>
-                  <div className="bg-white rounded-xl border-2 border-slate-200 shadow-lg w-full" style={{ padding: 'clamp(0.75rem, 2vw, 1.25rem)' }}>
+                <Box sx={{ width: "100%", maxWidth: { xs: "16rem", sm: "20rem", md: "24rem" }, mx: "auto", flexShrink: 0 }}>
+                  <Card sx={{ borderRadius: 3, border: "2px solid", borderColor: "outline.variant", boxShadow: 4, p: { xs: 1.5, sm: 2 } }}>
+                    <CardContent>
                     {/* Card Header */}
-                    <div className="text-center" style={{ marginBottom: 'clamp(0.5rem, 1.5vh, 1rem)' }}>
-                      <h3 className="font-bold text-slate-900" style={{ 
-                        fontSize: 'clamp(1rem, 2.2vw, 1.5rem)',
-                        marginBottom: 'clamp(0.375rem, 1.2vh, 0.625rem)'
-                      }}>
+                      <Box sx={{ textAlign: "center", mb: { xs: 1, sm: 1.5 } }}>
+                        <Typography variant="h5" sx={{ fontWeight: 700, mb: { xs: 0.5, sm: 1 } }}>
                         Hunter Premium
-                      </h3>
-                      <div className="flex items-baseline justify-center gap-2">
-                        <span className="font-bold text-slate-900" style={{ fontSize: 'clamp(1.75rem, 4.5vw, 3.5rem)' }}>R299</span>
-                        <span className="text-slate-600" style={{ fontSize: 'clamp(0.9rem, 1.8vw, 1.25rem)' }}>/month</span>
-                      </div>
-                    </div>
+                        </Typography>
+                        <Stack direction="row" spacing={1} alignItems="baseline" justifyContent="center">
+                          <Typography variant="h3" sx={{ fontWeight: 700 }}>
+                            R299
+                          </Typography>
+                          <Typography variant="body1" color="text.secondary">
+                            /month
+                          </Typography>
+                        </Stack>
+                      </Box>
 
                     {/* Features List */}
-                    <ul className="mb-3 flex flex-col" style={{ 
-                      gap: 'clamp(0.375rem, 1.2vh, 0.625rem)'
-                    }}>
-                      <li className="flex items-start gap-2.5">
-                        <svg
-                          className="text-emerald-600 flex-shrink-0 mt-0.5"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          style={{ width: 'clamp(0.875rem, 1.6vw, 1.25rem)', height: 'clamp(0.875rem, 1.6vw, 1.25rem)' }}
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M5 13l4 4L19 7"
-                          />
-                        </svg>
-                        <span className="text-slate-700 leading-snug" style={{ fontSize: 'clamp(0.7rem, 1.3vw, 0.9rem)' }}>
+                      <Stack spacing={1} sx={{ mb: 2 }}>
+                        <Stack direction="row" spacing={1.5} alignItems="flex-start">
+                          <CheckCircle sx={{ fontSize: { xs: 14, sm: 18 }, color: "primary.main", mt: 0.5, flexShrink: 0 }} />
+                          <Typography variant="body2" sx={{ lineHeight: 1.5 }}>
                           Deeper competitor & "near me" ranking insights
-                        </span>
-                      </li>
-                      <li className="flex items-start gap-2.5">
-                        <svg
-                          className="text-emerald-600 flex-shrink-0 mt-0.5"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          style={{ width: 'clamp(0.875rem, 1.6vw, 1.25rem)', height: 'clamp(0.875rem, 1.6vw, 1.25rem)' }}
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M5 13l4 4L19 7"
-                          />
-                        </svg>
-                        <span className="text-slate-700 leading-snug" style={{ fontSize: 'clamp(0.7rem, 1.3vw, 0.9rem)' }}>
+                          </Typography>
+                        </Stack>
+                        <Stack direction="row" spacing={1.5} alignItems="flex-start">
+                          <CheckCircle sx={{ fontSize: { xs: 14, sm: 18 }, color: "primary.main", mt: 0.5, flexShrink: 0 }} />
+                          <Typography variant="body2" sx={{ lineHeight: 1.5 }}>
                           Weekly opportunity alerts & action steps
-                        </span>
-                      </li>
-                      <li className="flex items-start gap-2.5">
-                        <svg
-                          className="text-emerald-600 flex-shrink-0 mt-0.5"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          style={{ width: 'clamp(0.875rem, 1.6vw, 1.25rem)', height: 'clamp(0.875rem, 1.6vw, 1.25rem)' }}
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M5 13l4 4L19 7"
-                          />
-                        </svg>
-                        <span className="text-slate-700 leading-snug" style={{ fontSize: 'clamp(0.7rem, 1.3vw, 0.9rem)' }}>
+                          </Typography>
+                        </Stack>
+                        <Stack direction="row" spacing={1.5} alignItems="flex-start">
+                          <CheckCircle sx={{ fontSize: { xs: 14, sm: 18 }, color: "primary.main", mt: 0.5, flexShrink: 0 }} />
+                          <Typography variant="body2" sx={{ lineHeight: 1.5 }}>
                           Social + GBP performance tracking in one place
-                        </span>
-                      </li>
-                      <li className="flex items-start gap-2.5">
-                        <svg
-                          className="text-emerald-600 flex-shrink-0 mt-0.5"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          style={{ width: 'clamp(0.875rem, 1.6vw, 1.25rem)', height: 'clamp(0.875rem, 1.6vw, 1.25rem)' }}
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M5 13l4 4L19 7"
-                          />
-                        </svg>
-                        <span className="text-slate-700 leading-snug" style={{ fontSize: 'clamp(0.7rem, 1.3vw, 0.9rem)' }}>
+                          </Typography>
+                        </Stack>
+                        <Stack direction="row" spacing={1.5} alignItems="flex-start">
+                          <CheckCircle sx={{ fontSize: { xs: 14, sm: 18 }, color: "primary.main", mt: 0.5, flexShrink: 0 }} />
+                          <Typography variant="body2" sx={{ lineHeight: 1.5 }}>
                           Priority onboarding & support
-                        </span>
-                      </li>
-                    </ul>
+                          </Typography>
+                        </Stack>
+                      </Stack>
 
                     {/* Primary CTA */}
-                    <div style={{ marginBottom: 'clamp(0.375rem, 1.2vh, 0.625rem)' }}>
-                      <button
+                      <Box sx={{ mb: { xs: 0.5, sm: 1 } }}>
+                        <Button
                         onClick={handleCompleteOnboarding}
                         disabled={paywallLoading}
-                        className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        style={{ 
-                          padding: 'clamp(0.5rem, 1.5vh, 0.875rem) clamp(0.875rem, 2.2vw, 1.25rem)',
-                          fontSize: 'clamp(0.8rem, 1.6vw, 1rem)'
+                          variant="contained"
+                          fullWidth
+                          sx={{
+                            borderRadius: 2,
+                            py: { xs: 1, sm: 1.5 },
+                            fontSize: { xs: "0.8rem", sm: "1rem" },
+                            fontWeight: 600,
                         }}
                       >
                         {paywallLoading ? "Processing..." : "Unlock Hunter Premium"}
-                      </button>
-                    </div>
+                        </Button>
+                      </Box>
 
                     {/* Secondary CTA - Below primary button */}
-                    <div className="text-center">
-                      <button
+                      <Box sx={{ textAlign: "center" }}>
+                        <Button
                         onClick={handleSkipToDashboard}
                         disabled={skipLoading || paywallLoading}
-                        className="text-slate-600 hover:text-slate-900 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed underline decoration-slate-300 hover:decoration-slate-600"
-                        style={{ fontSize: 'clamp(0.7rem, 1.2vw, 0.8rem)' }}
+                          variant="text"
+                          sx={{
+                            fontSize: { xs: "0.7rem", sm: "0.8rem" },
+                            color: "text.secondary",
+                            textDecoration: "underline",
+                            textDecorationColor: "outline.variant",
+                            "&:hover": {
+                              color: "text.primary",
+                              textDecorationColor: "outline.main",
+                            },
+                          }}
                       >
                         {skipLoading ? "Loading..." : "Not now — take me to my dashboard"}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+                        </Button>
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Box>
+              </Container>
+            </Box>
+          </Box>
+        </Box>
+      </Box>
 
       {/* Navigation Controls - Sticky Footer */}
-      <div className="flex-shrink-0 bg-white border-t border-slate-200 z-30">
-        <div className="max-w-4xl mx-auto px-6 md:px-10 py-4 flex items-center justify-between">
-          <button
+      <AppBar
+        position="static"
+        elevation={0}
+        sx={{
+          bgcolor: (theme) => theme.palette.surfaceContainer?.main || "#FFFFFF",
+          borderTop: "1px solid",
+          borderColor: "outline.variant",
+          zIndex: 30,
+          mt: "auto",
+        }}
+      >
+        <Toolbar sx={{ justifyContent: "space-between", maxWidth: "lg", mx: "auto", width: "100%" }}>
+          <Button
             onClick={goToPrevious}
             disabled={activeSlideIndex === 0}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            startIcon={<ChevronLeft sx={{ fontSize: 20 }} />}
+            sx={{
+              fontSize: "14px",
+              color: "text.secondary",
+              "&:hover": { color: "text.primary" },
+            }}
           >
-            <ChevronLeft className="h-5 w-5" />
             Previous
-          </button>
+          </Button>
 
           {/* Step Indicator */}
-          <div className="flex items-center gap-2">
+          <Stack direction="row" spacing={1} alignItems="center">
             {Array.from({ length: totalSlides }).map((_, index) => (
-              <button
+              <Box
                 key={index}
+                component="button"
                 onClick={() => setActiveSlideIndex(index)}
-                className={cn(
-                  "w-2 h-2 rounded-full transition-all",
-                  activeSlideIndex === index
-                    ? "bg-slate-900 w-8"
-                    : "bg-slate-300 hover:bg-slate-400"
-                )}
+                sx={{
+                  width: activeSlideIndex === index ? 32 : 8,
+                  height: 8,
+                  borderRadius: 999,
+                  bgcolor: activeSlideIndex === index ? "primary.main" : "outline.variant",
+                  border: "none",
+                  cursor: "pointer",
+                  transition: "all 0.2s",
+                  "&:hover": {
+                    bgcolor: activeSlideIndex === index ? "primary.dark" : "outline.main",
+                  },
+                }}
                 aria-label={`Go to slide ${index + 1}`}
               />
             ))}
-            <span className="ml-3 text-sm text-slate-600">
+            <Typography variant="body2" color="text.secondary" sx={{ ml: 1.5 }}>
               {activeSlideIndex + 1} of {totalSlides}
-            </span>
-          </div>
+            </Typography>
+          </Stack>
 
           {activeSlideIndex === totalSlides - 1 ? (
-            // On last slide, hide Next button (use paywall CTAs instead)
-            <div className="w-24" /> // Spacer to maintain layout
+            <Box sx={{ width: 96 }} /> // Spacer
           ) : (
-            <button
+            <Button
               onClick={goToNext}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              endIcon={<ChevronRight sx={{ fontSize: 20 }} />}
+              sx={{
+                fontSize: "14px",
+                color: "text.secondary",
+                "&:hover": { color: "text.primary" },
+              }}
             >
               Next
-              <ChevronRight className="h-5 w-5" />
-            </button>
+            </Button>
           )}
-        </div>
-      </div>
+        </Toolbar>
+      </AppBar>
 
       {/* Sticky Action Bar */}
       {selectedActions.length > 0 && (
-        <div className="fixed bottom-6 right-6 z-40">
-          <div className="bg-slate-950 text-white rounded-lg shadow-lg p-4 flex items-center gap-4">
-            <div className="text-sm">
+        <Box
+          sx={{
+            position: "fixed",
+            bottom: 24,
+            right: 24,
+            zIndex: 40,
+            bgcolor: "primary.main",
+            color: "onPrimary.main",
+            borderRadius: 2,
+            boxShadow: 4,
+            p: 2,
+            display: "flex",
+            alignItems: "center",
+            gap: 2,
+          }}
+        >
+          <Typography variant="body2">
               Plan: +30 reviews · 2 creators · launch in 14 days
-            </div>
-            <button
+          </Typography>
+          <Button
               onClick={() => {
                 console.log("Start plan");
                 // TODO: Implement
               }}
-              className="px-4 py-2 bg-white text-slate-950 text-sm font-medium rounded-lg hover:bg-slate-100 transition-colors"
+            variant="contained"
+            sx={{
+              bgcolor: (theme) => theme.palette.surfaceContainer?.main || "#FFFFFF",
+              color: "primary.main",
+              "&:hover": {
+                bgcolor: (theme) => theme.palette.surfaceContainerLow?.main || "#E9EEE4",
+              },
+            }}
             >
               Start plan
-            </button>
-          </div>
-        </div>
+          </Button>
+        </Box>
       )}
-    </div>
+
+      {/* Google Review Analysis Dialog */}
+      <Dialog
+        open={googleDialogOpen}
+        onClose={() => setGoogleDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        fullScreen={isMobile}
+        PaperProps={{
+          sx: {
+            borderRadius: isMobile ? 0 : 2,
+            backgroundColor: (theme) => theme.palette.surfaceContainer?.main || "#FFFFFF",
+            boxShadow: "0px 1px 2px rgba(0,0,0,0.08)",
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            pb: 1,
+            px: 3,
+            pt: 3,
+          }}
+        >
+          <Typography variant="titleLarge" sx={{ fontWeight: 500 }}>
+            Google Reviews Analysis
+          </Typography>
+          <IconButton
+            onClick={() => setGoogleDialogOpen(false)}
+            size="small"
+            sx={{
+              color: (theme) => theme.palette.onSurfaceVariant?.main,
+              "&:hover": {
+                backgroundColor: (theme) => theme.palette.surfaceContainerHigh?.main,
+              },
+            }}
+          >
+            <CloseRounded />
+          </IconButton>
+        </DialogTitle>
+
+        <DialogContent sx={{ px: 3, py: 2 }}>
+          <Stack spacing={3}>
+            {googleReviewSnapshot && (
+              <>
+                {/* Negative Reviews Summary */}
+                {googleReviewSnapshot.negative_summary && (
+                  <Box>
+                    <Typography variant="titleMedium" sx={{ mb: 2, fontWeight: 600 }}>
+                      Negative Reviews Analysis
+                    </Typography>
+                    <Box
+                      sx={{
+                        bgcolor: (theme) => theme.palette.error?.light || "#FFEBEE",
+                        borderLeft: "4px solid",
+                        borderColor: (theme) => theme.palette.error?.main || "#C62828",
+                        borderRadius: "0 8px 8px 0",
+                        p: 2.5,
+                      }}
+                    >
+                      <Stack direction="row" spacing={1.5} alignItems="flex-start">
+                        <Error sx={{ color: (theme) => theme.palette.error?.main || "#C62828", fontSize: 24, flexShrink: 0, mt: 0.5 }} />
+                        <Box>
+                          <Typography
+                            variant="bodyMedium"
+                            sx={{
+                              color: (theme) => theme.palette.error?.dark || "#B71C1C",
+                              fontWeight: 500,
+                              lineHeight: 1.6,
+                              mb: 1,
+                            }}
+                          >
+                            {googleReviewSnapshot.negative_summary}
+                          </Typography>
+                          {googleReviewSnapshot.negative_reviews > 0 && (
+                            <Typography variant="bodySmall" sx={{ color: (theme) => theme.palette.error?.dark || "#B71C1C", opacity: 0.8 }}>
+                              Based on {googleReviewSnapshot.negative_reviews} negative reviews
+                            </Typography>
+                          )}
+                        </Box>
+                      </Stack>
+                    </Box>
+                  </Box>
+                )}
+
+                {/* Positive Reviews Summary */}
+                {googleReviewSnapshot.positive_summary && (
+                  <Box>
+                    <Typography variant="titleMedium" sx={{ mb: 2, fontWeight: 600 }}>
+                      Positive Reviews Analysis
+                    </Typography>
+                    <Box
+                      sx={{
+                        bgcolor: (theme) => theme.palette.success?.light || "#E8F5E9",
+                        borderLeft: "4px solid",
+                        borderColor: (theme) => theme.palette.success?.main || "#4CAF50",
+                        borderRadius: "0 8px 8px 0",
+                        p: 2.5,
+                      }}
+                    >
+                      <Stack direction="row" spacing={1.5} alignItems="flex-start">
+                        <Favorite sx={{ color: (theme) => theme.palette.success?.main || "#4CAF50", fontSize: 24, flexShrink: 0, mt: 0.5 }} />
+                        <Box>
+                          <Typography
+                            variant="bodyMedium"
+                            sx={{
+                              color: (theme) => theme.palette.success?.dark || "#2E7D32",
+                              fontWeight: 500,
+                              lineHeight: 1.6,
+                              mb: 1,
+                            }}
+                          >
+                            {googleReviewSnapshot.positive_summary}
+                          </Typography>
+                          {googleReviewSnapshot.positive_reviews > 0 && (
+                            <Typography variant="bodySmall" sx={{ color: (theme) => theme.palette.success?.dark || "#2E7D32", opacity: 0.8 }}>
+                              Based on {googleReviewSnapshot.positive_reviews} positive reviews
+                            </Typography>
+                          )}
+                        </Box>
+                      </Stack>
+                    </Box>
+                  </Box>
+                )}
+
+                {/* Review Statistics */}
+                <Box
+                  sx={{
+                    bgcolor: (theme) => theme.palette.surfaceContainerHigh?.main || "#F6FAF0",
+                    borderRadius: 2,
+                    p: 2.5,
+                  }}
+                >
+                  <Typography variant="titleMedium" sx={{ mb: 2, fontWeight: 600 }}>
+                    Review Statistics
+                  </Typography>
+                  <Stack spacing={1.5}>
+                    {googleReviewSnapshot.total_reviews > 0 && (
+                      <Stack direction="row" justifyContent="space-between" alignItems="center">
+                        <Typography variant="bodyMedium" sx={{ color: "text.secondary" }}>
+                          Total reviews:
+                        </Typography>
+                        <Typography variant="bodyMedium" sx={{ fontWeight: 500 }}>
+                          {googleReviewSnapshot.total_reviews.toLocaleString()}
+                        </Typography>
+                      </Stack>
+                    )}
+                    {googleReviewSnapshot.days_since_last_review !== null && (
+                      <Stack direction="row" justifyContent="space-between" alignItems="center">
+                        <Typography variant="bodyMedium" sx={{ color: "text.secondary" }}>
+                          Days since last review:
+                        </Typography>
+                        <Typography variant="bodyMedium" sx={{ fontWeight: 500 }}>
+                          {googleReviewSnapshot.days_since_last_review}
+                        </Typography>
+                      </Stack>
+                    )}
+                    {googleReviewSnapshot.reviews_distribution && (
+                      <Box sx={{ mt: 1 }}>
+                        <Typography variant="bodySmall" sx={{ color: "text.secondary", mb: 1 }}>
+                          Review distribution:
+                        </Typography>
+                        <Stack spacing={0.5}>
+                          {[5, 4, 3, 2, 1].map((stars) => {
+                            const count = googleReviewSnapshot.reviews_distribution?.[
+                              stars === 5 ? 'fiveStar' :
+                              stars === 4 ? 'fourStar' :
+                              stars === 3 ? 'threeStar' :
+                              stars === 2 ? 'twoStar' : 'oneStar'
+                            ] || 0;
+                            const percentage = googleReviewSnapshot.total_reviews > 0
+                              ? (count / googleReviewSnapshot.total_reviews) * 100
+                              : 0;
+                            return (
+                              <Stack key={stars} direction="row" alignItems="center" spacing={1}>
+                                <Stack direction="row" spacing={0.25} sx={{ minWidth: 80 }}>
+                                  {[1, 2, 3, 4, 5].map((s) => (
+                                    <Star
+                                      key={s}
+                                      sx={{
+                                        fontSize: 14,
+                                        color: s <= stars ? "#FFC107" : "#E0E0E0",
+                                        fill: s <= stars ? "#FFC107" : "transparent",
+                                      }}
+                                    />
+                                  ))}
+                                </Stack>
+                                <Box sx={{ flex: 1, height: 8, bgcolor: "surface.variant", borderRadius: 999, overflow: "hidden" }}>
+                                  <Box
+                                    sx={{
+                                      width: `${percentage}%`,
+                                      height: "100%",
+                                      bgcolor: stars >= 4 ? "success.main" : stars >= 3 ? "warning.main" : "error.main",
+                                      transition: "width 0.3s",
+                                    }}
+                                  />
+                                </Box>
+                                <Typography variant="bodySmall" sx={{ minWidth: 60, textAlign: "right", fontSize: "0.75rem" }}>
+                                  {count} ({percentage.toFixed(1)}%)
+                                </Typography>
+                              </Stack>
+                            );
+                          })}
+                        </Stack>
+                      </Box>
+                    )}
+                  </Stack>
+                </Box>
+              </>
+            )}
+          </Stack>
+        </DialogContent>
+
+        <DialogActions
+          sx={{
+            justifyContent: "space-between",
+            p: { xs: 2, md: 3 },
+            borderTop: "1px solid",
+            borderColor: (theme) => theme.palette.outlineVariant?.main,
+            bgcolor: (theme) => theme.palette.surfaceContainerLow?.main,
+          }}
+        >
+          <Button
+            onClick={async () => {
+              setRegeneratingSummaries(true);
+              try {
+                const response = await fetch("/api/google/reviews/regenerate-summaries", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  credentials: "include",
+                  body: JSON.stringify({ businessId: placeId }),
+                });
+                const data = await response.json();
+                if (data.ok) {
+                  // Reload the page to show updated summaries
+                  window.location.reload();
+                } else {
+                  console.error("Failed to regenerate summaries:", data.error);
+                }
+              } catch (error) {
+                console.error("Error regenerating summaries:", error);
+              } finally {
+                setRegeneratingSummaries(false);
+              }
+            }}
+            disabled={regeneratingSummaries}
+            variant="outlined"
+            startIcon={regeneratingSummaries ? <CircularProgress size={16} /> : <RefreshCwIcon />}
+            sx={{
+              borderRadius: 999,
+              textTransform: "none",
+              fontWeight: 500,
+              fontSize: "14px",
+            }}
+          >
+            {regeneratingSummaries ? "Regenerating..." : "Regenerate summaries"}
+          </Button>
+          <Button
+            onClick={() => setGoogleDialogOpen(false)}
+            variant="contained"
+            sx={{
+              borderRadius: 999,
+              textTransform: "none",
+              fontWeight: 500,
+              fontSize: "14px",
+              backgroundColor: (theme) => theme.palette.primary.main,
+              color: (theme) => theme.palette.onPrimary?.main || "#FFFFFF",
+              "&:hover": {
+                backgroundColor: (theme) => theme.palette.primary.dark || "#005005",
+              },
+            }}
+          >
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
   );
 }
 
@@ -1353,14 +2141,14 @@ function LeaderCard({
               className="absolute left-2 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full bg-white/95 hover:bg-white shadow-lg transition-all"
               aria-label="Previous photo"
             >
-              <ChevronLeft className="w-5 h-5 text-slate-700" />
+              <ChevronLeft sx={{ width: 20, height: 20, color: "text.secondary" }} />
             </button>
             <button
               onClick={goToNext}
               className="absolute right-2 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full bg-white/95 hover:bg-white shadow-lg transition-all"
               aria-label="Next photo"
             >
-              <ChevronRight className="w-5 h-5 text-slate-700" />
+              <ChevronRight sx={{ width: 20, height: 20, color: "text.secondary" }} />
             </button>
             
             {/* Photo indicator dots */}
@@ -1397,7 +2185,7 @@ function LeaderCard({
           )}
           {leader.rating != null && (
             <>
-              <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+              <Star sx={{ width: 12, height: 12, color: "#FBBF24", fill: "#FBBF24" }} />
               {leader.rating.toFixed(1)} · {formatReviewCount(leader.reviews_total ?? 0)} reviews
             </>
           )}

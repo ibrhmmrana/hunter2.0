@@ -1,14 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { Star, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  Box,
+  Typography,
+  Stack,
+  Chip,
+  alpha,
+} from "@mui/material";
+import { StarRounded } from "@mui/icons-material";
 import { CompetitorInsights } from "@/lib/analytics/getBusinessCompetitorInsights";
 import { formatReviewCount } from "@/lib/format";
 import { placePhotoUrl } from "@/lib/google/photos";
 import { buildAdvantageChips } from "@/lib/competitors/advantageChips";
-import { cn } from "@/lib/utils";
-import { WatchlistButton } from "./WatchlistButton";
+import { WatchlistButtonM3 } from "./WatchlistButtonM3";
 
 interface CompetitorLeadersListProps {
   insights: CompetitorInsights;
@@ -192,70 +201,216 @@ function CompetitorTile({
       .toUpperCase();
   };
 
+  // Image border radius - change this value to adjust image corner rounding
+  // MUI spacing units: 0.5 = 4px (rounded), 1 = 8px (rounded-lg), 1.5 = 12px, 2 = 16px (rounded-2xl)
+  const IMAGE_BORDER_RADIUS = 0.5; // 4px (rounded)
+
   return (
-    <div className="flex flex-col rounded-2xl border border-slate-200 bg-white/98 overflow-hidden transition-all hover:shadow-lg/40">
-      {/* Image block */}
-      <div className="relative w-full h-[140px] md:h-[170px] bg-gradient-to-br from-slate-200 to-slate-300">
+    <Card
+      sx={{
+        borderRadius: 2, // 16px
+        backgroundColor: (theme) =>
+          theme.palette.surfaceContainer?.main || "#FFFFFF",
+        boxShadow: "0px 1px 2px rgba(0,0,0,0.08)",
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      {/* MEDIA REGION */}
+      <Box
+        sx={{
+          m: 2, // 16px margin
+          position: "relative",
+          borderRadius: IMAGE_BORDER_RADIUS, // 4px (rounded)
+          overflow: "hidden",
+          height: { xs: 220, md: 260 },
+          backgroundColor: (theme) =>
+            theme.palette.surfaceContainerLow?.main || "#E9EEE4",
+        }}
+      >
+        {/* Photo or placeholder */}
         {photoUrl ? (
-          <img
+          <Box
+            component="img"
             src={photoUrl}
             alt={competitor.name}
-            className="w-full h-full object-cover"
+            sx={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+            }}
             onError={(e) => {
               (e.target as HTMLImageElement).style.display = "none";
-              const fallback = (e.target as HTMLImageElement).nextElementSibling as HTMLElement;
-              if (fallback) fallback.classList.remove("hidden");
             }}
           />
-        ) : null}
-        <div className={`absolute inset-0 flex items-center justify-center ${photoUrl ? "hidden" : ""}`}>
-          <div className="text-2xl font-bold text-slate-400">
+        ) : (
+          <Box
+            sx={{
+              width: "100%",
+              height: "100%",
+              background:
+                "linear-gradient(135deg, rgba(226,232,240,1) 0%, rgba(203,213,225,1) 100%)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: { xs: "1.5rem", md: "1.875rem" },
+              fontWeight: 700,
+              color: (theme) => theme.palette.onSurfaceVariant?.main || "#444A41",
+            }}
+          >
             {getInitials(competitor.name)}
-          </div>
-        </div>
-        {/* Overlay tag - show "Outranking you" for general competitors */}
-        <div className="absolute top-2 left-2">
-          <span className="bg-rose-50 text-rose-600 text-[10px] px-2 py-0.5 rounded-full font-medium">
-            Outranking you
-          </span>
-        </div>
-        {/* Watchlist button - top right */}
-        <div className="absolute top-2 right-2 z-10">
-          <WatchlistButton
+          </Box>
+        )}
+
+        {/* "Outranking you" badge - top-left */}
+        <Chip
+          label="Outranking you"
+          sx={(theme) => ({
+            position: "absolute",
+            top: 8,
+            left: 8,
+            zIndex: 25,
+            height: "auto",
+            px: 1.5,
+            py: 0.75,
+            backgroundColor: theme.palette.error.main || "#E53935",
+            color: "#FFFFFF",
+            fontWeight: 500,
+            fontSize: "0.75rem",
+            letterSpacing: "0.05em",
+            boxShadow: "0px 1px 2px rgba(0,0,0,0.08)",
+            border: "none",
+            borderRadius: 999, // Pill shape to match watchlist button
+            "& .MuiChip-label": {
+              padding: 0,
+              fontSize: "inherit",
+            },
+          })}
+        />
+
+        {/* Watchlist button - top-right */}
+        <Box
+          sx={{
+            position: "absolute",
+            top: 8,
+            right: 8,
+            zIndex: 30,
+          }}
+        >
+          <WatchlistButtonM3
             competitorPlaceId={competitor.placeId}
             competitorName={competitor.name}
             competitorAddress={null}
           />
-        </div>
-      </div>
+        </Box>
+      </Box>
 
-      {/* Content block */}
-      <div className="p-4 space-y-2">
-        {/* Top line */}
-        <div>
-          <h3 className="text-sm font-semibold text-slate-900 line-clamp-1 mb-1">
-            {competitor.name}
-          </h3>
-          <p className="text-[11px] text-slate-500 flex items-center gap-1">
-            {distanceKm && (
-              <>
+      {/* CONTENT REGION */}
+      <CardContent sx={{ px: 2.5, pt: 0.5, pb: 1.5 }}>
+        {/* Title */}
+        <Typography
+          variant="titleLarge"
+          sx={{
+            fontWeight: 600,
+            mb: 0.75,
+            color: (theme) => theme.palette.onSurface?.main || "#1B1C19",
+          }}
+        >
+          {competitor.name}
+        </Typography>
+
+        {/* Subtitle row: distance + rating + review count */}
+        <Stack
+          direction="row"
+          spacing={1}
+          alignItems="center"
+          sx={{ mt: 0.75, flexWrap: "wrap" }}
+        >
+          {distanceKm && (
+            <>
+              <Typography
+                variant="bodyMedium"
+                sx={{
+                  color: (theme) =>
+                    theme.palette.onSurfaceVariant?.main || "#444A41",
+                }}
+              >
                 {distanceKm} away
-                {competitor.rating != null && " · "}
-              </>
-            )}
-            {competitor.rating != null && (
-              <>
-                <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />{" "}
+              </Typography>
+              {competitor.rating != null && (
+                <Typography
+                  variant="bodyMedium"
+                  sx={{
+                    color: (theme) =>
+                      theme.palette.onSurfaceVariant?.main || "#444A41",
+                  }}
+                >
+                  •
+                </Typography>
+              )}
+            </>
+          )}
+          {competitor.rating != null && (
+            <>
+              <StarRounded
+                sx={{
+                  fontSize: 16,
+                  color: "#F5B400",
+                }}
+              />
+              <Typography variant="bodyMedium" sx={{ fontWeight: 600 }}>
                 {competitor.rating.toFixed(1)}
-                {competitor.reviews != null && " · "}
-              </>
+              </Typography>
+              {competitor.reviews != null && (
+                <>
+                  <Typography
+                    variant="bodyMedium"
+                    sx={{
+                      color: (theme) =>
+                        theme.palette.onSurfaceVariant?.main || "#444A41",
+                    }}
+                  >
+                    •
+                  </Typography>
+                  <Typography
+                    variant="bodyMedium"
+                    sx={{
+                      color: (theme) =>
+                        theme.palette.onSurfaceVariant?.main || "#444A41",
+                    }}
+                  >
+                    {formatReviewCount(competitor.reviews)} reviews
+                  </Typography>
+                </>
+              )}
+            </>
+          )}
+          {competitor.rating == null && competitor.reviews != null && (
+            <Typography
+              variant="bodyMedium"
+              sx={{
+                color: (theme) =>
+                  theme.palette.onSurfaceVariant?.main || "#444A41",
+              }}
+            >
+              {formatReviewCount(competitor.reviews)} reviews
+            </Typography>
+          )}
+          {competitor.rating == null &&
+            competitor.reviews == null &&
+            !distanceKm && (
+              <Typography
+                variant="bodyMedium"
+                sx={{
+                  color: (theme) =>
+                    theme.palette.onSurfaceVariant?.main || "#444A41",
+                }}
+              >
+                No rating available
+              </Typography>
             )}
-            {competitor.reviews != null && (
-              <>{formatReviewCount(competitor.reviews)} reviews</>
-            )}
-            {competitor.rating == null && competitor.reviews == null && "No rating available"}
-          </p>
-        </div>
+        </Stack>
 
         {/* Advantage chips */}
         {yourStats && (() => {
@@ -268,26 +423,37 @@ function CompetitorTile({
           });
           
           return chips.length > 0 ? (
-            <div className="mt-2 flex flex-wrap gap-2 text-xs">
+            <Box sx={{ mt: 2, display: "flex", flexWrap: "wrap", gap: 1 }}>
               {chips.map((chip, idx) => (
-                <span
+                <Chip
                   key={idx}
-                  className={cn(
-                    'inline-flex items-center rounded-full px-2.5 py-1',
-                    'border text-[11px]',
-                    chip.tone === 'warning'
-                      ? 'border-rose-100 bg-rose-50 text-rose-700'
-                      : 'border-slate-200 bg-slate-50 text-slate-600'
-                  )}
-                >
-                  {chip.label}
-                </span>
+                  label={chip.label}
+                  size="small"
+                  sx={{
+                    height: 24,
+                    fontSize: "0.6875rem",
+                    backgroundColor: (theme) =>
+                      chip.tone === "warning"
+                        ? theme.palette.error.light || "#FFEBEE"
+                        : theme.palette.surfaceContainerHigh?.main || "#F6FAF0",
+                    color: (theme) =>
+                      chip.tone === "warning"
+                        ? theme.palette.error.dark || "#C62828"
+                        : theme.palette.onSurface?.main || "#1B1C19",
+                    border: "1px solid",
+                    borderColor: (theme) =>
+                      chip.tone === "warning"
+                        ? theme.palette.error.main || "#E53935"
+                        : theme.palette.outlineVariant?.main || "#DDE4D8",
+                    borderRadius: 999,
+                  }}
+                />
               ))}
-            </div>
+            </Box>
           ) : null;
         })()}
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
 

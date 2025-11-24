@@ -195,6 +195,8 @@ export default async function DashboardPage() {
         days_since_last_review: googleSnapshot.days_since_last_review,
         total_reviews: googleSnapshot.total_reviews,
         reviews_distribution: googleSnapshot.reviews_distribution,
+        negative_summary: googleSnapshot.negative_summary,
+        positive_summary: googleSnapshot.positive_summary,
         snapshot_ts: googleSnapshot.snapshot_ts,
       };
     }

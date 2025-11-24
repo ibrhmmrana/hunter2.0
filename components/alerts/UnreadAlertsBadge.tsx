@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { cn } from "@/lib/utils";
+import { Box, Typography } from "@mui/material";
 
 export function UnreadAlertsBadge() {
   const [unreadCount, setUnreadCount] = useState<number | null>(null);
@@ -33,14 +33,31 @@ export function UnreadAlertsBadge() {
   }
 
   return (
-    <span
-      className={cn(
-        "ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-xs font-medium",
-        "bg-rose-500 text-white"
-      )}
+    <Box
+      sx={{
+        ml: "auto",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        minWidth: 20,
+        height: 20,
+        px: 1.5,
+        borderRadius: 999,
+        bgcolor: "error.main",
+      }}
     >
-      {unreadCount > 99 ? "99+" : unreadCount}
-    </span>
+      <Typography
+        variant="caption"
+        sx={{
+          color: "white",
+          fontSize: "0.75rem",
+          fontWeight: 600,
+          lineHeight: 1,
+        }}
+      >
+        {unreadCount > 99 ? "99+" : unreadCount}
+      </Typography>
+    </Box>
   );
 }
 

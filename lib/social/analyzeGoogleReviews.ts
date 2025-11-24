@@ -152,8 +152,8 @@ export async function analyzeGoogleReviews(
     };
 
     // Count negative (1-2 stars) and positive (4-5 stars) reviews
-    const negativeReviews = reviewsDistribution.oneStar + reviewsDistribution.twoStar;
-    const positiveReviews = reviewsDistribution.fourStar + reviewsDistribution.fiveStar;
+    const negativeReviewsCount = reviewsDistribution.oneStar + reviewsDistribution.twoStar;
+    const positiveReviewsCount = reviewsDistribution.fourStar + reviewsDistribution.fiveStar;
     const totalReviews = placeData.reviewsCount || reviews.length;
 
     // Find most recent review
@@ -215,8 +215,8 @@ export async function analyzeGoogleReviews(
     }
 
     const summary: GoogleReviewSummary = {
-      negativeReviews,
-      positiveReviews,
+      negativeReviews: negativeReviewsCount,
+      positiveReviews: positiveReviewsCount,
       daysSinceLastReview,
       totalReviews,
       reviewsDistribution,
@@ -228,8 +228,8 @@ export async function analyzeGoogleReviews(
     const supabase = createServiceRoleClient();
     await storeGoogleReviewSnapshot(supabase, {
       business_id: businessId,
-      negative_reviews: negativeReviews,
-      positive_reviews: positiveReviews,
+      negative_reviews: negativeReviewsCount,
+      positive_reviews: positiveReviewsCount,
       days_since_last_review: daysSinceLastReview,
       total_reviews: totalReviews,
       reviews_distribution: reviewsDistribution,
@@ -241,6 +241,98 @@ export async function analyzeGoogleReviews(
     });
 
     console.log('[analyzeGoogleReviews] Snapshot stored successfully');
+
+    // Generate review summaries using OpenAI
+    try {
+      const { summarizeReviews } = await import('./summarizeReviews');
+      
+      // Get negative reviews (1-2 stars) - up to 40 total WITH text
+      // Filter by stars, extract text, filter empty, then slice to ensure we get 40 reviews with actual content
+      const negativeReviewsList = reviews
+        .filter((r) => {
+          const stars = r.stars || r.rating || 0;
+          return stars >= 1 && stars <= 2;
+        })
+        .map((r: any) => ({
+          text: r.text || r.reviewText || r.textReview || r.description || r.comment || r.review || '',
+          stars: r.stars || r.rating || 0,
+        }))
+        .filter((r) => r.text.trim().length > 0)
+        .slice(0, 40);
+
+      // Get positive reviews (4-5 stars) - up to 40 total WITH text
+      const positiveReviewsList = reviews
+        .filter((r) => {
+          const stars = r.stars || r.rating || 0;
+          return stars >= 4 && stars <= 5;
+        })
+        .map((r: any) => ({
+          text: r.text || r.reviewText || r.textReview || r.description || r.comment || r.review || '',
+          stars: r.stars || r.rating || 0,
+        }))
+        .filter((r) => r.text.trim().length > 0)
+        .slice(0, 40);
+
+      let negativeSummary: string | null = null;
+      let positiveSummary: string | null = null;
+
+      console.log('[analyzeGoogleReviews] Review counts for summarization', {
+        negativeReviewsWithText: negativeReviewsList.length,
+        positiveReviewsWithText: positiveReviewsList.length,
+        negativeReviewsTotal: negativeReviewsCount,
+        positiveReviewsTotal: positiveReviewsCount,
+      });
+
+      if (negativeReviewsList.length > 0) {
+        negativeSummary = await summarizeReviews(negativeReviewsList, 'negative', negativeReviewsCount);
+      }
+
+      if (positiveReviewsList.length > 0) {
+        positiveSummary = await summarizeReviews(positiveReviewsList, 'positive', positiveReviewsCount);
+      }
+
+      // Update the most recent snapshot with summaries
+      if (negativeSummary || positiveSummary) {
+        // Get the most recent snapshot timestamp first
+        const { data: latestSnapshot, error: fetchError } = await supabase
+          .from('google_review_snapshots')
+          .select('snapshot_ts')
+          .eq('business_id', businessId)
+          .order('snapshot_ts', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (fetchError || !latestSnapshot) {
+          console.error('[analyzeGoogleReviews] Error fetching latest snapshot:', fetchError);
+        } else {
+          // Update using the exact timestamp
+          const { error: updateError } = await supabase
+            .from('google_review_snapshots')
+            .update({
+              negative_summary: negativeSummary,
+              positive_summary: positiveSummary,
+            })
+            .eq('business_id', businessId)
+            .eq('snapshot_ts', latestSnapshot.snapshot_ts);
+
+          if (updateError) {
+            console.error('[analyzeGoogleReviews] Error updating summaries:', updateError);
+          } else {
+            console.log('[analyzeGoogleReviews] Review summaries stored', {
+              hasNegativeSummary: !!negativeSummary,
+              hasPositiveSummary: !!positiveSummary,
+              snapshot_ts: latestSnapshot.snapshot_ts,
+            });
+          }
+        }
+      }
+    } catch (summaryError: any) {
+      console.error('[analyzeGoogleReviews] Error generating summaries:', {
+        error: summaryError.message,
+        stack: summaryError.stack,
+      });
+      // Don't throw - summaries are nice to have but not critical
+    }
 
     return summary;
   } catch (error: any) {
